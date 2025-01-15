@@ -2,6 +2,7 @@
 
 import numpy as np
 import pickle
+import os
 import matplotlib.pyplot as plt
 import pandas as pd
 from brian2 import *
@@ -13,7 +14,7 @@ def DataGeneration(
     params,
     num_trial=100,
     coherence=0.0,
-    threshold=35.0,     # Decision threshold (Hz) consistent with GUI
+    threshold=60.0,     # Decision threshold (Hz) consistent with GUI
     trial_len=2000.0,   # Total stimulus duration per trial (ms)
     BG_len=300.0,       # Background activity duration (ms)
     input_amp=0.00156   # Sensory input amplitude (matches GUI default)
@@ -74,69 +75,70 @@ def DataGeneration(
     EL_firing   = np.zeros(num_trial, dtype=int)
     ER_firing   = np.zeros(num_trial, dtype=int)
     Result_list = {}
+    EL_RT = None
+    ER_RT = None
 
     # 4) Define a "low threshold" (for partial checks)
     low_threshold = threshold * 0.5
 
     # 5) Loop over trials
     for k in range(num_trial):
-        # 5.1) Reset the network to the initial state
+        # 1) 恢復初始狀態
         net.restore('default')
 
-        # 5.2) Run the background phase
-        neuron_groups['E_L'].I   = 0.0
-        neuron_groups['E_R'].I   = 0.0
-        neuron_groups['NSE'].I   = 0.0
-        neuron_groups['Inh_L'].I = 0.0
-        neuron_groups['Inh_R'].I = 0.0
+        # 2) 跑背景期
+        #    （背景期只要直接 run 就好，不用 chunk-based）
+        neuron_groups['E_L'].I   = 0
+        neuron_groups['E_R'].I   = 0
+        neuron_groups['NSE'].I   = 0
+        neuron_groups['Inh_L'].I = 0
+        neuron_groups['Inh_R'].I = 0
         net.run(BG_len * ms)
 
-        # 5.3) Set the stimulus input
-        # If coherence=0.2 => E_R_input = input_amp*(1.2), E_L_input = input_amp*(0.8)
-        E_R_input = input_amp * (1.0 + coherence)
-        E_L_input = input_amp * (1.0 - coherence)
-
+        # 3) 設定刺激電流 (從 0 ms 開始新的計時)
+        E_R_input = input_amp * (1.0 + coherence/100)
+        E_L_input = input_amp * (1.0 - coherence/100)
         neuron_groups['E_R'].I = E_R_input
         neuron_groups['E_L'].I = E_L_input
 
-        # We'll simulate in small chunks (10 ms) to detect threshold in real-time
-        chunk = 10 * ms
-        time_elapsed = 0 * ms
+        # 4) 進入刺激期 (trial phase)，用「stim_elapsed」專門管控時間
+        stim_elapsed = 0*ms
         decision_made = False
+        chunk = 10*ms
 
-        while time_elapsed < trial_len * ms and not decision_made:
-            remaining = (trial_len * ms) - time_elapsed
+        while stim_elapsed < trial_len*ms and not decision_made:
+            # (a) 先決定本次要跑多久（chunk or 剩餘時間）
+            remaining = trial_len*ms - stim_elapsed
             this_step = chunk if remaining > chunk else remaining
-            net.run(this_step)
-            time_elapsed += this_step
 
-            # 5.4) Obtain population firing rates
-            rateEL = monitors['rate_EL'].smooth_rate(width=20 * ms) / Hz
-            rateER = monitors['rate_ER'].smooth_rate(width=20 * ms) / Hz
+            # (b) 跑網路 this_step
+            net.run(this_step)
+            stim_elapsed += this_step
+
+            # (c) 讀 firing rates 並做 threshold 偵測
+            rateEL = monitors['rate_EL'].smooth_rate(width=10*ms)/Hz
+            rateER = monitors['rate_ER'].smooth_rate(width=10*ms)/Hz
             times  = monitors['rate_EL'].t / ms
 
-            # Ensure array lengths match
-            min_len = min(len(rateEL), len(rateER), len(times))
-            rateEL = rateEL[:min_len]
-            rateER = rateER[:min_len]
-            times  = times[:min_len]
-
-            # Find indices where E_L or E_R exceed the threshold
             idx_high_EL = np.where(rateEL >= threshold)[0]
             idx_high_ER = np.where(rateER >= threshold)[0]
             idx_low_EL  = np.where(rateEL >= low_threshold)[0]
             idx_low_ER  = np.where(rateER >= low_threshold)[0]
 
-            # Check whether either side reached threshold unambiguously
+            # 如果有任何一方 >= threshold，就判斷是否「單邊勝出」
             if (len(idx_high_EL) > 0) or (len(idx_high_ER) > 0):
-                # Decide which side "won"
-                # "Unambiguous": other side doesn't come close to half-threshold at same times
+                net.run(150 * ms)
+                # --- E_R 明確勝出 ---
                 if (len(idx_high_ER) > 0 and
-                    (len(idx_low_EL) == 0 or 
-                     float(len(set(idx_high_ER) & set(idx_low_EL))) / len(idx_high_ER) < 0.6)):
-                    # E_R side wins
+                    (len(idx_low_EL) == 0 or
+                    float(len(list(set(idx_high_ER).intersection(idx_low_EL)))/ len(idx_high_ER)) < 0.6)):
+                    
+                    neuron_groups['E_L'].I   = 0
+                    neuron_groups['E_R'].I   = 0
+                    net.run(200 * ms)
+                    
                     first_spike_idx = idx_high_ER[0]
-                    ER_RT = first_spike_idx / 10.0  # index => (index * 10 ms)
+                    ER_RT = first_spike_idx / 10.0
                     ER_firing[k] = 1
                     total_ER_RT.append(ER_RT)
 
@@ -147,15 +149,20 @@ def DataGeneration(
                         list(difference_ER_EL),
                         list(rateER),
                         list(rateEL),
-                        list(monitors['rate_IL'].smooth_rate(width=20*ms)[:min_len]/Hz),
-                        list(monitors['rate_IR'].smooth_rate(width=20*ms)[:min_len]/Hz)
+                        list(monitors['rate_IL'].smooth_rate(width=20*ms)/Hz),
+                        list(monitors['rate_IR'].smooth_rate(width=20*ms)/Hz)
                     ]
                     decision_made = True
 
+                # --- E_L 明確勝出 ---
                 elif (len(idx_high_EL) > 0 and
-                      (len(idx_low_ER) == 0 or 
-                       float(len(set(idx_high_EL) & set(idx_low_ER))) / len(idx_high_EL) < 0.6)):
-                    # E_L side wins
+                    (len(idx_low_ER) == 0 or
+                    float(len(list(set(idx_high_EL).intersection(idx_low_ER)))/ len(idx_high_EL)) < 0.6)):
+        
+                    neuron_groups['E_L'].I   = 0
+                    neuron_groups['E_R'].I   = 0
+                    net.run(200 * ms)
+                    
                     first_spike_idx = idx_high_EL[0]
                     EL_RT = first_spike_idx / 10.0
                     EL_firing[k] = 1
@@ -168,22 +175,26 @@ def DataGeneration(
                         list(difference_ER_EL),
                         list(rateER),
                         list(rateEL),
-                        list(monitors['rate_IL'].smooth_rate(width=20*ms)[:min_len]/Hz),
-                        list(monitors['rate_IR'].smooth_rate(width=20*ms)[:min_len]/Hz)
+                        list(monitors['rate_IL'].smooth_rate(width=20*ms)/Hz),
+                        list(monitors['rate_IR'].smooth_rate(width=20*ms)/Hz)
                     ]
                     decision_made = True
-                else:
-                    # Ambiguous or both fired => no definitive decision
-                    NO_decision[k] = 1
-                    Result_list[k] = None
-                    decision_made = True
 
-        # 5.5) If time ran out with no decision:
+                else:
+                    # 兩邊都局部達到 -> ambiguous
+                    # 【改】不要立刻結束，讓網路繼續跑，
+                    #     等後面再看會不會單邊真正拉開差距
+                    pass
+
+        # 5) 如果跑完 trial_len 還沒決定，標示 No decision
         if not decision_made:
             NO_decision[k] = 1
             Result_list[k] = None
+            ER_RT = None
+            EL_RT = None
 
-        print(f"Trial {k+1}/{num_trial}: EL_firing={EL_firing[k]}, ER_firing={ER_firing[k]}, NO_decision={NO_decision[k]}")
+        print(f"Trial {k+1}/{num_trial}: EL_firing={EL_firing[k]}, "
+            f"ER_firing={ER_firing[k]}, NO_decision={NO_decision[k]}, Trial_RT={EL_RT if EL_firing[k] else ER_RT}")
 
     # Return all results
     return Result_list, total_EL_RT, total_ER_RT, NO_decision, EL_firing, ER_firing
@@ -255,8 +266,13 @@ def run_experiment(
     gamma_ie = params.get('gamma_ie', 0.0)
     gamma_ii = params.get('gamma_ii', 0.0)
 
-    # 3) Construct filename
-    filename = (
+    # 3) Construct filename and directory path
+    folder_name = "data"
+    if not os.path.exists(folder_name):
+        os.makedirs(folder_name) 
+
+    filename = os.path.join(
+        folder_name,
         f"EE{gamma_ee}_EI{gamma_ei}_"
         f"IE{gamma_ie}_II{gamma_ii}_"
         f"coh{coh}_trialCount{num_trial}_trialN{trial_n}.pkl"
