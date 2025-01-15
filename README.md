@@ -46,6 +46,10 @@ A biologically plausible spiking neural network model for decision-making tasks,
      * Plot psychometric curves (performance vs. coherence).
      * Plot “energy landscapes” by calling `plot_energy_landscapes`.
      * Perform “non-regret” analyses and compare different parameter settings or top-down conditions.
+6. **'Performance_GUI.ipynb'**
+     * A GUI-based interface for performance visualization and comparisons.
+     * Displays psychometric curves with real-time decision-making data.
+     * Supports interactive parameter exploration and .pkl data saving.
 
 ## Model Architecture
 
