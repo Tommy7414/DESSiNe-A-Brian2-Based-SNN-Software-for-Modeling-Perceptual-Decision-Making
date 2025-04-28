@@ -1,3 +1,5 @@
+# Plot_func.py
+
 """
 ## Introduction:
 This file contains the `plot_data` function used for visualizing the simulation results of the neural network. The plots display various metrics such as membrane potentials, spike rastergrams, and firing rates for different neuron groups, including excitatory (E_L, E_R), inhibitory (I_L, I_R), and non-specific excitatory (NSE) neurons.
@@ -17,7 +19,6 @@ This file contains the `plot_data` function used for visualizing the simulation 
 The function also displays decision outcomes such as "E_L Firing", "E_R Firing", "No Decision", or "Both Firing", along with reaction times (RT) when applicable.
 """
 
-# plot_func.py
 import numpy as np
 from brian2 import *
 import matplotlib.pyplot as plt
@@ -113,6 +114,16 @@ def plot_data(canvas,
     ax.plot(MP_I_L.t/ms, MP_I_L.v[0], color='royalblue', label='I_L Neuron 0')
     ax.plot(MP_I_R.t/ms, MP_I_R.v[0], color='mediumorchid', label='I_R Neuron 0')
 
+    # Add vertical lines for spike times of the 0th neuron in I_L and I_R
+    t_spikes = spike_IL.t[spike_IL.i == 0]
+    if len(t_spikes) > 0:
+        ax.plot([t_spikes/ms, t_spikes/ms], [spike_top, spike_bottom], color='royalblue', linewidth=1.0)
+    t_spikes = spike_IR.t[spike_IR.i == 0]
+    if len(t_spikes) > 0:
+        ax.plot([t_spikes/ms, t_spikes/ms], [spike_top, spike_bottom], color='mediumorchid', linewidth=1.0)
+    ax.set_ylim([y_min, y_max])
+    ax.legend()
+
     ## Plot 5: Spike rastergrams for inhibitory neurons
     ax = fig.add_subplot(335)
     ax.scatter(spike_IL.t/ms, spike_IL.i, s=0.125, color='royalblue', label='I_L')
@@ -129,6 +140,13 @@ def plot_data(canvas,
     ## Plot 7: Membrane potentials of NSE neurons
     ax = fig.add_subplot(337)
     ax.plot(MP_NSE.t/ms, MP_NSE.v[0], color='green', label='NSE Neuron 0')
+
+    # Add vertical lines for spike times of the 0th neuron in NSE
+    t_spikes = spike_NSE.t[spike_NSE.i == 0]
+    if len(t_spikes) > 0:
+        ax.plot([t_spikes/ms, t_spikes/ms], [spike_top, spike_bottom], color='green', linewidth=1.0)
+    ax.set_ylim([y_min, y_max])
+    ax.legend()
 
     ## Plot 8: Spike rastergrams for NSE neurons
     ax = fig.add_subplot(338)

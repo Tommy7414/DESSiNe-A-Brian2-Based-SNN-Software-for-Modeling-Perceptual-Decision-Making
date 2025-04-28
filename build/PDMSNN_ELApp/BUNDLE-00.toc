@@ -1,0 +1,3 @@
+([('PDMSNN_ELApp',
+   '/Users/Jer_ry/Desktop/Spiking-neural-model_GUIAPP/PDMSNN-A-Brian2-Based-SNN-Software-for-Modeling-Perceptual-Decision-Making/dist/PDMSNN_ELApp',
+   'EXECUTABLE')],)

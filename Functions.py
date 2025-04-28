@@ -78,16 +78,14 @@ def DataGeneration(
     EL_RT = None
     ER_RT = None
 
-    # 4) Define a "low threshold" (for partial checks)
+    # Define a "low threshold" (for partial checks)
     low_threshold = threshold * 0.5
 
-    # 5) Loop over trials
+    # Loop over trials
     for k in range(num_trial):
-        # 1) 恢復初始狀態
         net.restore('default')
 
-        # 2) 跑背景期
-        #    （背景期只要直接 run 就好，不用 chunk-based）
+        # run background activity
         neuron_groups['E_L'].I   = 0
         neuron_groups['E_R'].I   = 0
         neuron_groups['NSE'].I   = 0
@@ -95,27 +93,24 @@ def DataGeneration(
         neuron_groups['Inh_R'].I = 0
         net.run(BG_len * ms)
 
-        # 3) 設定刺激電流 (從 0 ms 開始新的計時)
+        # sensory input
         E_R_input = input_amp * (1.0 + coherence/100)
         E_L_input = input_amp * (1.0 - coherence/100)
         neuron_groups['E_R'].I = E_R_input
         neuron_groups['E_L'].I = E_L_input
 
-        # 4) 進入刺激期 (trial phase)，用「stim_elapsed」專門管控時間
+        # trial phase
         stim_elapsed = 0*ms
         decision_made = False
         chunk = 10*ms
 
         while stim_elapsed < trial_len*ms and not decision_made:
-            # (a) 先決定本次要跑多久（chunk or 剩餘時間）
             remaining = trial_len*ms - stim_elapsed
             this_step = chunk if remaining > chunk else remaining
 
-            # (b) 跑網路 this_step
             net.run(this_step)
             stim_elapsed += this_step
 
-            # (c) 讀 firing rates 並做 threshold 偵測
             rateEL = monitors['rate_EL'].smooth_rate(width=10*ms)/Hz
             rateER = monitors['rate_ER'].smooth_rate(width=10*ms)/Hz
             times  = monitors['rate_EL'].t / ms
@@ -125,10 +120,10 @@ def DataGeneration(
             idx_low_EL  = np.where(rateEL >= low_threshold)[0]
             idx_low_ER  = np.where(rateER >= low_threshold)[0]
 
-            # 如果有任何一方 >= threshold，就判斷是否「單邊勝出」
+            # for any >= threshold, turn off stimuli, run more 150ms
             if (len(idx_high_EL) > 0) or (len(idx_high_ER) > 0):
                 net.run(150 * ms)
-                # --- E_R 明確勝出 ---
+                # --- for E_R win clearly ---
                 if (len(idx_high_ER) > 0 and
                     (len(idx_low_EL) == 0 or
                     float(len(list(set(idx_high_ER).intersection(idx_low_EL)))/ len(idx_high_ER)) < 0.6)):
@@ -154,7 +149,7 @@ def DataGeneration(
                     ]
                     decision_made = True
 
-                # --- E_L 明確勝出 ---
+                # --- for E_L win clearly --
                 elif (len(idx_high_EL) > 0 and
                     (len(idx_low_ER) == 0 or
                     float(len(list(set(idx_high_EL).intersection(idx_low_ER)))/ len(idx_high_EL)) < 0.6)):
@@ -181,12 +176,8 @@ def DataGeneration(
                     decision_made = True
 
                 else:
-                    # 兩邊都局部達到 -> ambiguous
-                    # 【改】不要立刻結束，讓網路繼續跑，
-                    #     等後面再看會不會單邊真正拉開差距
                     pass
 
-        # 5) 如果跑完 trial_len 還沒決定，標示 No decision
         if not decision_made:
             NO_decision[k] = 1
             Result_list[k] = None
@@ -199,7 +190,44 @@ def DataGeneration(
     # Return all results
     return Result_list, total_EL_RT, total_ER_RT, NO_decision, EL_firing, ER_firing
 
+def save_result_with_metadata(
+    file_path,
+    params,
+    coherence,
+    num_trial,
+    threshold,
+    trial_len,
+    BG_len,
+    input_amp,
+    result_list
+):
+    """
+    Save the result_list and metadata to a .pkl file.
+    """
+    meta = {
+        "gamma_ee": params.get('gamma_ee', 0.0),
+        "gamma_ei": params.get('gamma_ei', 0.0),
+        "gamma_ie": params.get('gamma_ie', 0.0),
+        "gamma_ii": params.get('gamma_ii', 0.0),
+        "coherence": coherence,
+        "num_trial": num_trial,
+        "threshold": threshold,
+        "trial_len": trial_len,
+        "BG_len": BG_len,
+        "input_amp": input_amp,
+        "timestamp": datetime.datetime.now().isoformat()
+    }
 
+    data_to_save = {
+        "metadata": meta,
+        "result_list": result_list
+    }
+
+    with open(file_path, 'wb') as f:
+        pickle.dump(data_to_save, f)
+
+    print(f"[save_result_with_metadata] Save done: {file_path}")
+    
 def run_experiment(
     params,
     coherence_list=[0, 3.2, 6.4, 12.8, 25.6, 51.2],
@@ -241,10 +269,8 @@ def run_experiment(
         The same tuple from DataGeneration. Also saves the Result_list to a pickle file 
         including gamma params and coherence in its name.
     """
-    # 1) Pick coherence
     coh = coherence_list[coherence_index]
 
-    # 2) Call DataGeneration
     (Result_list,
      total_EL_RT,
      total_ER_RT,
@@ -319,6 +345,55 @@ def load_and_merge_data(file_paths, initial_offset=0, step=100):
         key_offset += step
 
     return merged_dict, key_offset
+
+def load_and_merge_data_with_metadata(file_paths, initial_offset=0, step=100):
+    """
+    Read multiple .pkl files, each containing { "metadata": {...}, "result_list": {...} } structure.
+    Check metadata consistency (gamma_ee, gamma_ei, gamma_ie, gamma_ii, coherence).
+    Returns
+      merged_dict : dict
+      base_metadata : dict
+    """
+    if not file_paths:
+        raise ValueError("No file paths given.")
+
+    merged_dict = {}
+    key_offset = initial_offset
+    base_metadata = None
+
+    for i, path in enumerate(file_paths):
+        with open(path, 'rb') as f:
+            loaded_data = pickle.load(f)
+
+            if "metadata" not in loaded_data or "result_list" not in loaded_data:
+                raise ValueError(f"File {path} does not contain 'metadata' or 'result_list'")
+
+            meta = loaded_data["metadata"]
+            res  = loaded_data["result_list"]
+
+            if base_metadata is None:
+                base_metadata = meta
+            else:
+                if (
+                    base_metadata["gamma_ee"] != meta["gamma_ee"] or
+                    base_metadata["gamma_ei"] != meta["gamma_ei"] or
+                    base_metadata["gamma_ie"] != meta["gamma_ie"] or
+                    base_metadata["gamma_ii"] != meta["gamma_ii"] or
+                    base_metadata["coherence"] != meta["coherence"]
+                ):
+                    raise ValueError(
+                        f"File {path} metadata not match with the first file.\n"
+                        f"base={base_metadata}\n"
+                        f"current={meta}"
+                    )
+
+            # Merge
+            shifted = { (k + key_offset): v for k, v in res.items() }
+            merged_dict.update(shifted)
+
+        key_offset += step
+
+    return merged_dict, base_metadata
 
 
 def calculate_performance(result_list):
@@ -662,3 +737,153 @@ def plot_energy_landscapes(
     plt.title('Energy Landscapes')
     plt.legend()
     plt.show()
+
+
+def plot_energy_landscapes_on_figure(Result_list, fig, ax, time_window, plot_full_scale, EXC=True, lim=40):
+    import pandas as pd
+    import numpy as np
+    from functools import partial
+
+    if not Result_list:
+        raise ValueError("Result_list cannot be empty")
+    if not time_window and not plot_full_scale:
+        raise ValueError("Either time_window must be provided or plot_full_scale must be True")
+    
+    ax.clear()
+    plotted = False
+
+def plot_energy_landscapes_on_figure(Result_list, fig, ax, time_window, plot_full_scale, EXC=True, lim=40):
+    import pandas as pd
+    import numpy as np
+    from functools import partial
+
+    if not Result_list:
+        raise ValueError("Result_list cannot be empty")
+    if not time_window and not plot_full_scale:
+        raise ValueError("Either time_window must be provided or plot_full_scale must be True")
+    
+    ax.clear()
+    plotted = False
+
+    if plot_full_scale:
+        Velocity_dict_full = {}
+        for i in Result_list:
+            if Result_list[i] is not None:
+                data_length = len(Result_list[i][5])
+                # for sure it wont out of line
+                for j in range(data_length - 200):
+                    try:
+                        if Result_list[i][5][j] != -1 and Result_list[i][5][j + 200] != -1:
+                            x = Result_list[i][5][j]
+                            velocity = Result_list[i][5][j + 200] - Result_list[i][5][j]
+                            if x not in Velocity_dict_full:
+                                Velocity_dict_full[x] = [velocity]
+                            else:
+                                Velocity_dict_full[x].append(velocity)
+                    except IndexError:
+                        continue
+
+        if not Velocity_dict_full:
+            print("Warning: No valid data points found for full scale plot")
+            return
+
+        df_full = pd.DataFrame([(k, v) for k, values in Velocity_dict_full.items() for v in values], columns=['x', 'velocity'])
+
+        interval_full = np.arange(df_full['x'].min(), df_full['x'].max(), 0.1)
+        df_full['interval'] = pd.cut(df_full['x'], interval_full)
+        df_full_grouped = df_full.groupby('interval').mean()
+        df_full_grouped['x'] = interval_full[:-1] + 0.05
+
+        df_full_grouped['negative_velocity'] = -df_full_grouped['velocity']
+        df_full_grouped['U(x)'] = df_full_grouped['negative_velocity'].cumsum()
+
+        if -50 in df_full_grouped['x'].values:
+            y_offset_full = df_full_grouped[df_full_grouped['x'] == -50]['U(x)'].values[0]
+            df_full_grouped['U(x)'] -= y_offset_full
+
+        x_full = np.array(df_full_grouped['x'])
+        y_full = np.array(df_full_grouped['U(x)'], dtype=float)
+        ax.plot(x_full, y_full, label='Full scale U(x)', linestyle='--')
+        ax.grid(True)
+
+    else:
+        for window in time_window:
+            start_time, end_time = window
+            mean_time = (start_time + end_time) / 2 / 1000.0
+            title_str = f"U(x): {start_time}ms to {end_time}ms (mean={mean_time:.2f}s)"
+            
+            Velocity_dict = {}
+            for i in Result_list:
+                if Result_list[i] is not None:
+                    if Result_list[i][2] is not None:
+                        reaction_time = int(Result_list[i][2] * 10)
+                    elif Result_list[i][3] is not None:
+                        reaction_time = int(Result_list[i][3] * 10)
+                    else:
+                        continue
+
+                    start_idx = max(0, reaction_time + start_time * 10)
+                    end_idx = max(0, reaction_time + end_time * 10)
+                    data_length = len(Result_list[i][5])
+                    
+                    end_idx = min(end_idx, data_length - 200)
+                    
+                    for j in range(start_idx, end_idx):
+                        try:
+                            if Result_list[i][5][j] != -1 and Result_list[i][5][j + 200] != -1:
+                                x = Result_list[i][5][j]
+                                velocity = Result_list[i][5][j + 200] - Result_list[i][5][j]
+                                if x not in Velocity_dict:
+                                    Velocity_dict[x] = [velocity]
+                                else:
+                                    Velocity_dict[x].append(velocity)
+                        except IndexError:
+                            continue
+
+            if not Velocity_dict:
+                print(f"Warning: No valid data points found for window {start_time}ms to {end_time}ms")
+                continue
+
+            df = pd.DataFrame([(k, v) for k, values in Velocity_dict.items() for v in values], columns=['x', 'velocity'])
+
+            interval = np.arange(df['x'].min(), df['x'].max(), 0.1)
+            df['interval'] = pd.cut(df['x'], interval)
+            df_all_grouped = df.groupby('interval').mean()
+            df_all_grouped['x'] = interval[:-1] + 0.05
+
+            df_all_grouped['negative_velocity'] = -df_all_grouped['velocity']
+            df_all_grouped['U(x)'] = df_all_grouped['negative_velocity'].cumsum()
+
+            x = np.array(df_all_grouped['x'])
+            y = np.array(df_all_grouped['U(x)'], dtype=float)
+            ax.plot(x, y, label=title_str)
+            ax.grid(True)
+            plotted = True
+
+    if plotted:
+        ax.legend()
+        ax.set_xlabel('Position')
+        ax.set_ylabel('Energy U(x)')
+
+
+def plot_perf_rt_on_figure(coherence_list, perf_array, rt_mean_array, rt_std_array, fig, ax):
+    ax.clear()
+    ax2 = ax.twinx()
+    ax.plot(coherence_list, perf_array, 'bo-', label="Performance")
+    ax.set_ylabel("Performance (fraction E_R)")
+    ax.set_xlabel("Coherence (%)")
+    ax.set_ylim(0, 1.05)
+    ax2.errorbar(coherence_list, rt_mean_array, yerr=rt_std_array,
+                 fmt='rs--', capsize=5, label="Reaction Time")
+    ax2.set_ylabel("Reaction Time (ms)")
+    max_rt = max(rt_mean_array) if len(rt_mean_array) > 0 else 100
+    min_rt = min(rt_mean_array) if len(rt_mean_array) > 0 else 0
+    ax2.set_ylim(min_rt - 10, max_rt + 10)
+    ax.grid(True)
+    ax.set_title("Performance & RT vs Coherence")
+    handles, labels = ax.get_legend_handles_labels()
+    if handles:
+        ax.legend(loc='upper left')
+    handles2, labels2 = ax2.get_legend_handles_labels()
+    if handles2:
+        ax2.legend(loc='upper right')

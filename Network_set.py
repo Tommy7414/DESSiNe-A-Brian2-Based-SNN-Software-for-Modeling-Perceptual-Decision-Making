@@ -11,7 +11,7 @@ This section outlines the functions used to create the network.
 1. init_parameters: Initialize the parameters for the network
 - The parameters here are further configured in GUI.ipynb.
 - To modify parameters, you can update them within this function 
-  and ensure the corresponding changes are reflected in GUI.ipynb.
+  and ensure the corresponding changes are reflected in PDMSNN_DM.py/ PDMSNN_EL.py.
 
 2. define_equations: Define the equations for the neurons
 
@@ -21,8 +21,8 @@ This section outlines the functions used to create the network.
 
 4. create_synapses: Create the synapses for the network
 - Total synapses: 40 basic synapses and 4 top-down synapses.
-- Synaptic weights are only set within this function.
-- In GUI.ipynb, you can adjust the connection percentage to change the degree of selectivity.
+- Synaptic weights are only set within this function. (You can modify them here.)
+- In PDMSNN_DM.py/ PDMSNN_EL.py, you can adjust the connection percentage to change the degree of selectivity.
   - gamma_ee: The percentage of weights for exc -> exc
   - gamma_ie: The percentage of weights for exc -> inh
   - gamma_ei: The percentage of weights for inh -> exc
@@ -535,17 +535,17 @@ def create_synapses(params, neuron_groups):
 
     ## Synaptic conductance
     ge_AMPA_rec       = 0.00013 * (1 + params['gamma_ee'])
-    ge_NMDA_rec       = 0.0006 * (1 + params['gamma_ee'])
+    ge_NMDA_rec       = 0.00062 * (1 + params['gamma_ee'])
     ge_AMPA_cross     = 0.00013 / (1 + params['gamma_ee'])
-    ge_NMDA_cross     = 0.0006 / (1 + params['gamma_ee'])
-    gie_GABA_same     = 0.0147 / (1 + params['gamma_ie'])
-    gie_GABA_opposite = 0.0147  * (1 + params['gamma_ie'])
+    ge_NMDA_cross     = 0.00062 / (1 + params['gamma_ee'])
+    gie_GABA_same     = 0.0151 / (1 + params['gamma_ie'])
+    gie_GABA_opposite = 0.0151  * (1 + params['gamma_ie'])
     gi_GABA_rec       = 0.000108 * 31 / (1 + params['gamma_ii'])
     gi_GABA_cross     = 0.000108 * 31 * (1 + params['gamma_ii'])
     gei_AMPA_same     = 0.00013 * (1 + params['gamma_ei'])
-    gei_NMDA_same     = 0.00036 * (1 + params['gamma_ei'])
+    gei_NMDA_same     = 0.00038 * (1 + params['gamma_ei'])
     gei_AMPA_opposite = 0.00013 / (1 + params['gamma_ei'])
-    gei_NMDA_opposite = 0.00036 / (1 + params['gamma_ei'])
+    gei_NMDA_opposite = 0.00038 / (1 + params['gamma_ei'])
     gnse_AMPA         = 0.00005
     gnse_NMDA         = 0.00015
     gnsi_AMPA         = 0.00006
