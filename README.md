@@ -7,7 +7,6 @@ This repository implements a spiking neural network model of **two-choice decisi
 > **[2]** Liu, B., Lo, C.-C., & Wu, K.-A. (2021). *Choose carefully, act quickly: Efficient decision making with selective inhibition in attractor neural networks*. bioRxiv. [Link](https://www.biorxiv.org/content/10.1101/2021.10.05.463257v2)
 
 ---
-
 ## Overview
 
 A **biologically plausible** spiking neural network model for decision-making tasks, implemented using [Brian2](https://brian2.readthedocs.io/). This model features:
@@ -15,9 +14,10 @@ A **biologically plausible** spiking neural network model for decision-making ta
 * **Adjustable selective inhibitory connections**
 * **Configurable top-down control signals**
 * **Two separate PyQt5-based GUI tools** for:
-  * Running simulations and visualizing results (original `GUI.py`)
-  * Advanced analysis of performance, reaction times, and “energy landscapes” (`AdvancedPlot_GUI.py`)
+  * Running simulations and visualizing results (original `PDMSNN_DM.py`)
+  * Advanced analysis of performance, reaction times, and “energy landscapes” (`PDMSNN_EL.py`)
 * **Real-time** or **post-hoc** visualization of network dynamics and decision outcomes
+* **Precompiled macOS Applications** (`PDMSNN_DMApp`, `PDMSNN_ELApp`) that allow users to run the full system without needing to install Python or any packages.
 
 ---
 
@@ -25,22 +25,22 @@ A **biologically plausible** spiking neural network model for decision-making ta
 
 This repository contains the following main files and folders:
 
-1. **`AdvancedPlot_GUI.py`**
-   * A standalone PyQt5 application (also compiled as `PLOTApp.app`) for advanced plotting and data analysis.
+1. **`PDMSNN_EL.py`**
+   * A standalone PyQt5 application for advanced plotting and data analysis.
    * **Features**:
      * Mode selection for either loading and plotting existing data (**energy landscapes** / **psychometric curves** / **RT**) or running new simulations to generate fresh data.
      * Time-window-based “energy landscape” plotting.
      * Performance & reaction-time analysis over multiple coherence levels.
      * Option to save simulation results and merged data in `.pkl` files.
-2. **`GUI.py`**
-   * The original PyQt5 interface (compiled as `GUIApp.app`) to **configure and run** the spiking network in real time.
+2. **`PDMSNN_DM.py`**
+   * The original PyQt5 interface to **configure and run** the spiking network in real time.
    * **Features**:
      * Adjustable network parameters (e.g., `n_E`, `n_I`, `gamma_ee`, etc.).
      * Toggle top-down signals, set threshold, background/stimulus duration, coherence, and more.
-     * Live visualization of spike rasters/firing rates (requires Brian2 plots).
+     * Live visualization of spike rasters/firing rates (depending on your system’s Brian2 plotting backend).
 3. **`Plot_func.py`**
-   * Utility functions to facilitate plotting within the original `GUI.py` (e.g., raster plots, PSTHs).
-   * **Note**: The advanced plotting routines (energy landscape, psychometric curves) are instead in `Functions.py` and are invoked by `AdvancedPlot_GUI.py`.
+   * Utility functions to facilitate plotting within the original `PDMSNN_DM.py` (e.g., raster plots, PSTHs).
+   * **Note**: The advanced plotting routines (energy landscape, psychometric curves) are instead in `Functions.py` and are invoked by `PDMSNN_EL.py`.
 4. **`Functions.py`**
    * Core Python functions for **data generation** and **analysis**, including:
      * `DataGeneration`: Runs multiple trials of the Brian2 network, logs decision outcomes (e.g., which population won, reaction times).
@@ -52,9 +52,18 @@ This repository contains the following main files and folders:
      * Defines excitatory/inhibitory populations, external input, synaptic weight matrices, and monitors.
      * Core equations for AMPA, NMDA, GABA synapses, and how top-down signals are injected.
 6. **`data/`**
-   * A folder to store or load simulation results (`.pkl`) that can be plotted in `AdvancedPlot_GUI.py`.
+   * A folder to store or load simulation results (`.pkl`) that can be plotted in `PDMSNN_EL.py`.
    * Place any pre-generated data files here for easy loading (though users can pick any directory from the file dialog).
-
+7. **`dist/`**
+   * This folder contains precompiled `.app` versions for macOS (tested on Apple M2 chips):
+     * `PDMSNN_DMApp`: A packaged application for configuring and running spiking network simulations without requiring a Python environment.
+     * `PDMSNN_ELApp`: A packaged application for advanced plotting and analysis.
+   * **Usage**:
+     * Simply double-click the `.app` file to launch.
+     * No need to install Python or any libraries manually.
+     * The workflow inside the app mirrors the Python scripts:
+       * For `PDMSNN_DMApp`: Set parameters → run simulation → view results in real-time.
+       * For `PDMSNN_ELApp`: Choose between plotting existing data or running new trials → analyze energy landscapes or performance curves.
 ---
 
 ## Installation and Dependencies
@@ -67,21 +76,21 @@ This repository contains the following main files and folders:
 You can install the necessary packages with:
 
 ```bash
-pip install brian2 pyqt5 matplotlib numpy
+pip install brian2 pyqt5 matplotlib numpy pandas
 ```
 
 ---
 
 ## How to Use the GUIs
 
-### 1. Running the Original GUI (`GUI.py`)
+### 1. Running the Original GUI (`PDMSNN_DM.py`)
 
 This is the classic interface to **configure network parameters** and run spiking simulations with on-the-fly plots.
 
 * **Command**:
 
   ```bash
-  python GUI.py
+  python PDMSNN_DM.py
   ```
 
   (Or double-click `GUIApp.app` on supported systems.)
@@ -92,14 +101,14 @@ This is the classic interface to **configure network parameters** and run spikin
   3. Configure simulation parameters: `num_trial`, `threshold`, `trial_len`, `BG_len`, `input_amp`, `coherence`.
   4. Start the simulation to see live raster plots/firing rates (depending on your system’s Brian2 plotting backend).
 
-### 2. Running the Advanced Plotting GUI (`AdvancedPlot_GUI.py`)
+### 2. Running the Advanced Plotting GUI (`PDMSNN_EL.py`)
 
 This interface provides **more comprehensive** post-hoc analysis and plotting capabilities, as well as the option to run new trials in a more streamlined manner.
 
 * **Command**:
 
   ```bash
-  python AdvancedPlot_GUI.py
+  python PDMSNN_EL.py
   ```
 
   (Or run `PLOTApp.app` if you have the compiled version.)
@@ -119,9 +128,9 @@ This interface provides **more comprehensive** post-hoc analysis and plotting ca
      * Similar parameter setup, but runs trials across **six coherence values**.
      * Plots aggregated performance (accuracy) and reaction-time curves, and optionally saves each coherence’s data to `.pkl`.
 
-#### Typical Workflow in `AdvancedPlot_GUI.py`
+#### Typical Workflow in `PDMSNN_EL.py`
 
-1. **Open**`AdvancedPlot_GUI.py` → a **Mode Selection** window appears.
+1. **Open** `PDMSNN_EL.py` → a **Mode Selection** window appears.
 2. If “Use existed data to plot”:
    * A file dialog prompts you to select `.pkl` files.
    * Choose how to plot (energy landscape full-scale/time-based or performance & RT).
@@ -170,7 +179,7 @@ This interface provides **more comprehensive** post-hoc analysis and plotting ca
 
 ## Example: Generating and Plotting Performance Curves
 
-1. **Run New Trial (performance/RT)** in `AdvancedPlot_GUI.py`:
+1. **Run New Trial (performance/RT)** in `PDMSNN_EL.py`:
    * Select “Run new trial (performance/RT)” → set top-down parameters (optional).
    * Set network parameters and the number of trials.
    * Hit “Run” → the app sweeps through `[0, 3.2, 6.4, 12.8, 25.6, 51.2]` coherence values.
@@ -183,13 +192,14 @@ This interface provides **more comprehensive** post-hoc analysis and plotting ca
 
 ## Notes on the `.app` Files
 
-* Two compiled app bundles are provided (for certain platforms):
-  * **`GUIApp.app`** → a packaged version of `GUI.py`.
-  * **`PLOTApp.app`** → a packaged version of `AdvancedPlot_GUI.py`.
-* If your system supports it, you can simply double-click the `.app` to launch the respective GUI. Otherwise, the `.py` files can be run directly from the terminal.
+* Two compiled app bundles are provided:
+  * **`GUIApp.app`** → a packaged version of `PDMSNN_DM.py`.
+  * **`PLOTApp.app`** → a packaged version of `PDMSNN_EL.py`.
+* These applications are fully self-contained; users do **not** need to install Python or any packages to run them on macOS systems (Apple M2 tested).
+* Simply double-click the `.app` file to launch the corresponding GUI.
+* Compatibility beyond macOS Apple M2 (e.g., Intel Mac, Windows, Linux) requires re-compilation and has not been formally tested yet.
 
 ---
-
 ## References
 
 For theoretical background on balanced and selective inhibition, attractor neural networks, and top-down modulation, please see:
