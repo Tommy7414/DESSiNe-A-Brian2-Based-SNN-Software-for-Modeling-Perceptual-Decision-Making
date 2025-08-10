@@ -195,5 +195,7 @@ build/
 
 # Distribution - exclude everything except release zips
 dist/*
-!dist/DESSiNe_DMApp.zip
-!dist/DESSiNe_ELApp.zip
+!dist/DESSiNe_DMApp_MAC.zip
+!dist/DESSiNe_DMApp_Win.zip
+!dist/DESSiNe_ELApp_MAC.zip
+!dist/DESSiNe_ELApp_Win.zip
