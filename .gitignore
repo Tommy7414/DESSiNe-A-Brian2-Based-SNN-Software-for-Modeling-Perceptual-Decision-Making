@@ -185,7 +185,15 @@ Temporary Items
 # Data files
 data/
 
-# Application bundles and compiled files
+# Application bundles and compiled files - but allow specific release zips
 *.app/
 *.dmg
 *.pkg
+
+# Build artifacts
+build/
+
+# Distribution - exclude everything except release zips
+dist/*
+!dist/DESSiNe_DMApp.zip
+!dist/DESSiNe_ELApp.zip
