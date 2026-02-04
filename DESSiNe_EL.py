@@ -32,7 +32,10 @@ from Functions import (
     DataGeneration,
     plot_energy_landscapes_on_figure,
     plot_perf_rt_on_figure,
-    load_and_merge_data_with_metadata
+    load_and_merge_data_with_metadata,
+    _apply_log10_ticks_from_strengths,
+    _fit_psychometric_logistic_log10,
+    _psychometric_curve
 )
 from Network_set import build_network
 
@@ -112,7 +115,7 @@ class PlotDialog(QDialog):
         self.plot_widget.draw()
 
     def draw_perf_rt(self, 
-                     coherence_list, 
+                     evidence_strength_list, 
                      perf_array, 
                      rt_mean_array, 
                      rt_std_array,
@@ -123,7 +126,7 @@ class PlotDialog(QDialog):
         ax = fig.add_subplot(111)
 
         plot_perf_rt_on_figure(
-            coherence_list,
+            evidence_strength_list,
             perf_array,
             rt_mean_array,
             rt_std_array,
@@ -213,9 +216,9 @@ class ModeSelectionDialog(QDialog):
 
         layout = QVBoxLayout()
 
-        self.radio_a = QRadioButton("Use existed data to plot")
-        self.radio_b = QRadioButton("Run new trial (energy)")
-        self.radio_c = QRadioButton("Run new trial (performance/RT)")
+        self.radio_a = QRadioButton("Load data and plot")
+        self.radio_b = QRadioButton("Run new trials (energy landscape)")
+        self.radio_c = QRadioButton("Run new trials (performance/RT)")
 
         self.radio_a.setChecked(True)
 
@@ -241,17 +244,17 @@ class ModeSelectionDialog(QDialog):
 
 
 ###################################################
-# (a) PlotExistingDialog: Upload existed file(s) to plot
+# (a) PlotExistingDialog: Load data and plot
 ###################################################
 class PlotExistingDialog(QDialog):
     """
     - User can choose multiple files at once by QFileDialog.getOpenFileNames
-    - Parse filenames to ensure all files have the same EE/EI/IE/II and coh
+    - Parse filenames to ensure all files have the same EE/EI/IE/II and str
     - Load and merge all files, then plot energy landscape using PlotDialog
     """
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Upload existed file to plot")
+        self.setWindowTitle("Load data and plot")
         self.resize(400, 240)
         self.file_paths = []
 
@@ -264,17 +267,17 @@ class PlotExistingDialog(QDialog):
         layout.addWidget(btn_open)
 
         # energy landscape (full_scale)
-        btn_plot_energy = QPushButton("plot energy_landscape (full scale)")
+        btn_plot_energy = QPushButton("Plot Energy_Landscape (full scale)")
         btn_plot_energy.clicked.connect(lambda: self.on_plot_energy_clicked(full_scale=True))
         layout.addWidget(btn_plot_energy)
     
         # energy landscape time-base
-        btn_plot_energy_time = QPushButton("plot energy_landscape changes by time")
+        btn_plot_energy_time = QPushButton("Plot Energy_Landscape changes by time")
         btn_plot_energy_time.clicked.connect(lambda: self.on_plot_energy_clicked(full_scale=False))
         layout.addWidget(btn_plot_energy_time)
 
         # plot Performance
-        btn_plot_perf = QPushButton("plot Performance (6 cohs required)")
+        btn_plot_perf = QPushButton("Plot Performance (6 strengths required)")
         btn_plot_perf.clicked.connect(self.on_plot_perf_clicked)
         layout.addWidget(btn_plot_perf)
 
@@ -283,14 +286,14 @@ class PlotExistingDialog(QDialog):
     @staticmethod
     def _make_signature(meta: dict):
         """
-        Build a grouping key using γ’s + coherence (+ S,R if top_down):
-        (gEE, gEI, gIE, gII, coherence, 'NTD')
+        Build a grouping key using γ’s + evidence_strength (+ S,R if top_down):
+        (gEE, gEI, gIE, gII, evidence_strength, 'NTD')
         or
-        (gEE, gEI, gIE, gII, coherence, 'TD', S, R)
+        (gEE, gEI, gIE, gII, evidence_strength, 'TD', S, R)
         """
         base = (meta['gamma_ee'], meta['gamma_ei'],
                 meta['gamma_ie'], meta['gamma_ii'],
-                meta['coherence'])
+                meta['evidence_strength'])
         if not meta.get('top_down', False):
             return (*base, 'NTD')
         else:
@@ -298,8 +301,8 @@ class PlotExistingDialog(QDialog):
 
     @staticmethod
     def _make_perf_signature(meta: dict):
-        """Build a grouping key using γ’s (+ S,R), ignoring coherence.
-           Return tuple without coherence for grouping Perf/RT"""
+        """Build a grouping key using γ’s (+ S,R), ignoring evidence_strength.
+           Return tuple without evidence_strength for grouping Perf/RT"""
         base = (meta['gamma_ee'], meta['gamma_ei'],
                 meta['gamma_ie'], meta['gamma_ii'])
         if not meta.get('top_down', False):
@@ -320,7 +323,7 @@ class PlotExistingDialog(QDialog):
         
     def load_and_merge(self):
         """
-        Check if all selected files have the same EE/EI/IE/II and coh,
+        Check if all selected files have the same EE/EI/IE/II and strengths,
         if not, raise error; otherwise merge all files using load_and_merge_data.
         Return merged_dict and parsed base_info tuple.
         """
@@ -394,15 +397,15 @@ class PlotExistingDialog(QDialog):
             for idx, (sig, files) in enumerate(param_groups.items()):
                 merged, _ = load_and_merge_data_with_metadata(files)
 
-                gEE, gEI, gIE, gII, coh = sig[:5]
+                gEE, gEI, gIE, gII, strength = sig[:5]
                 tail = sig[5:]
                 if tail[0] == 'NTD':
                     label = (f"γEE={gEE},γEI={gEI},γIE={gIE},γII={gII}"
-                            f"/coh={coh}")
+                            f"/strength={strength}")
                 else:
                     _, S, R = tail
                     label = (f"γEE={gEE},γEI={gEI},γIE={gIE},γII={gII}"
-                            f"/coh={coh}/S={S},R={R}")
+                            f"/strength={strength}/S={S},R={R}")
 
                 plot_energy_landscapes_on_figure(
                     Result_list   = merged,
@@ -454,17 +457,16 @@ class PlotExistingDialog(QDialog):
             sources = []
             for idx, (sig, files) in enumerate(param_groups.items()):
                 merged, _ = load_and_merge_data_with_metadata(files)
-                gEE, gEI, gIE, gII, coh = sig[:5]
+                gEE, gEI, gIE, gII, strength = sig[:5]
                 tail = sig[5:]
                 if tail[0] == 'NTD':
-                    label = (f"γEE={gEE},γEI={gEI},γIE={gIE},γII={gII}/coh={coh}")
+                    label = (f"γEE={gEE},γEI={gEI},γIE={gIE},γII={gII}/strength={strength}")
                 else:
                     _, S, R = tail
-                    label = (f"γEE={gEE},γEI={gEI},γIE={gIE},γII={gII}/coh={coh}/S={S},R={R}")
+                    label = (f"γEE={gEE},γEI={gEI},γIE={gIE},γII={gII}/strength={strength}/S={S},R={R}")
                 color = colors[idx % len(colors)]
                 sources.append((merged, label, color))
 
-            # 單/多組都用同一個對話框；多組可 overlay，並帶 boundary 控制
             dlg = EnergyBoundaryDialog(
                 self, sources=sources, time_window=[],
                 plot_full_scale=True, EXC=True, lim=40,
@@ -473,7 +475,6 @@ class PlotExistingDialog(QDialog):
             dlg.exec_()
             return
 
-        # ---------- time-window（僅支援 1 組） ----------
         if len(param_groups) != 1:
             QMessageBox.warning(
                 self, "Only one parameter set",
@@ -497,7 +498,7 @@ class PlotExistingDialog(QDialog):
 
     def on_plot_perf_clicked(self):
         """
-        Require all six coherences per group, compute perf/RT, and plot single or overlay (max 5 groups).
+        Require all six evidence_strengths per group, compute perf/RT, and plot single or overlay (max 5 groups).
         """
         if not getattr(self, 'file_paths', []):
             QMessageBox.warning(self, "Warning", "please select files first!")
@@ -514,18 +515,18 @@ class PlotExistingDialog(QDialog):
                 return
 
             sig = self._make_perf_signature(meta)
-            coh = meta['coherence']
-            group_dict.setdefault(sig, {}).setdefault(coh, []).append(fp)
+            strength = meta['evidence_strength']
+            group_dict.setdefault(sig, {}).setdefault(strength, []).append(fp)
 
-        needed_coh = [0.0, 3.2, 6.4, 12.8, 25.6, 51.2]
+        needed_strength = [0.0, 3.2, 6.4, 12.8, 25.6, 51.2]
         valid_groups = {}
-        for sig, coh_map in group_dict.items():
-            if all(c in coh_map and coh_map[c] for c in needed_coh):
-                valid_groups[sig] = coh_map
+        for sig, str_map in group_dict.items():
+            if all(c in str_map and str_map[c] for c in needed_strength):
+                valid_groups[sig] = str_map
 
         if not valid_groups:
             QMessageBox.warning(self, "Warning",
-                "No parameter set owns the whole 6-coherence dataset.")
+                "No parameter set owns the whole 6-evidence_strength dataset.")
             return
 
         if len(valid_groups) > 5:
@@ -552,12 +553,12 @@ class PlotExistingDialog(QDialog):
         colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
         group_results = []      # list of dicts: {sig, perf[], rt_mean[], rt_std[], label, color}
 
-        for idx, (sig, coh_map) in enumerate(valid_groups.items()):
+        for idx, (sig, str_map) in enumerate(valid_groups.items()):
             perf_arr, rt_mean_arr, rt_std_arr = [], [], []
-            for coh in needed_coh:
-                files = coh_map[coh]
+            for strength in needed_strength:
+                files = str_map[strength]
                 merged, _ = load_and_merge_data_with_metadata(files)
-                # --- 計算 perf / rt ---
+                # --- compute perf / rt ---
                 ER_cnt = EL_cnt = 0
                 RT_list = []
                 for trial in merged.values():
@@ -596,7 +597,7 @@ class PlotExistingDialog(QDialog):
             g = group_results[0]
             dlg = PlotDialog(self)
             dlg.draw_perf_rt(
-                needed_coh,
+                needed_strength,
                 g['perf'],
                 g['rt_mean'],
                 g['rt_std'],
@@ -606,25 +607,63 @@ class PlotExistingDialog(QDialog):
             dlg.exec_()
             return
 
+
+        x_arr  = np.array(needed_strength, dtype=float)
+        x_safe = np.where(x_arr == 0.0, 1e-3, x_arr)  # 0 -> 0.001
+
         fig, (ax_perf, ax_rt) = plt.subplots(2, 1, figsize=(7, 8), sharex=True)
 
+        # 1) log x + 從 1 開始顯示
+        for ax in (ax_perf, ax_rt):
+            ax.set_xscale('log', base=10)
+            ax.set_xlim(1.0, 100.0)
+
+        # -------------------------
+        # PERF：每組都畫 sigmoid 平滑曲線 + 原始點(不含0.001那顆)
+        # -------------------------
+        xmax = ax_perf.get_xlim()[1]
+        x_fit = np.logspace(np.log10(1.0), np.log10(xmax), 250)
+
         for g in group_results:
-            ax_perf.plot(needed_coh, g['perf'], '-o',
-                        color=g['color'], label=g['label'])
+            y = np.array(g['perf'], float)
+
+            # fit in log10-space, but can include the 0->0.001 point for shape
+            A, B, alpha, beta = _fit_psychometric_logistic_log10(x_safe, y)
+            y_fit = _psychometric_curve(x_fit, A, B, alpha, beta)
+
+            # 平滑曲線
+            ax_perf.plot(x_fit, y_fit, '-', lw=2, color=g['color'], label=g['label'])
+            # 原始點：只畫 3.2 之後（排除 0->0.001 那顆）
+            ax_perf.plot(x_safe[1:], y[1:], 'o', color=g['color'])
+
         ax_perf.set_ylabel('Performance')
-        ax_perf.set_ylim(0, 1.05)
+        ax_perf.set_ylim(0.45, 1.05)
         ax_perf.grid(True, ls='--', alpha=.3)
         ax_perf.legend(frameon=False, fontsize=8, ncol=1)
 
+        # -------------------------
+        # RT：維持你原本畫法
+        # -------------------------
         for g in group_results:
-            ax_rt.errorbar(needed_coh, g['rt_mean'], yerr=g['rt_std'],
-                        fmt='s--', capsize=4, color=g['color'],
-                        label=g['label'])
+            ax_rt.plot(x_safe, g['rt_mean'], '--', color=g['color'])
+            ax_rt.errorbar(
+                x_safe[1:], np.array(g['rt_mean'])[1:],
+                yerr=np.array(g['rt_std'])[1:],
+                fmt='s', capsize=4, color=g['color']
+            )
+
         ax_rt.set_ylabel('Reaction Time (ms)')
-        ax_rt.set_xlabel('Coherence (%)')
+        ax_rt.set_xlabel('Evidence Strength (%)', labelpad=12)
+        ax_rt.tick_params(axis='x', pad=8)
         ax_rt.grid(True, ls='--', alpha=.3)
 
-        fig.tight_layout()
+        tick_vals = [1.0, 3.2, 6.4, 12.8, 25.6, 51.2, 100.0]
+        ax_rt.set_xticks(tick_vals)
+        ax_rt.set_xticklabels([f"{t:g}" for t in tick_vals])
+
+        fig.tight_layout(pad=1.2)
+        fig.subplots_adjust(bottom=0.14)
+
         dlg = PlotDialog(self)
         dlg.plot_widget.canvas.figure = fig
         dlg.setWindowTitle("Performance / RT comparison")
@@ -857,14 +896,14 @@ class ExecDialog(QDialog):
         self.BG_len = 300
         self.input_amp = 0.00156
 
-        self.coherence_list = [0, 3.2, 6.4, 12.8, 25.6, 51.2]
+        self.evidence_strength_list = [0, 3.2, 6.4, 12.8, 25.6, 51.2]
 
         self.result_dict = {}
 
         self.init_ui()
 
     def init_ui(self):
-        """Build the run screen (title, progress, optional coherence field, plot)."""
+        """Build the run screen (title, progress, optional evidence_strength field, plot)."""
         main_layout = QVBoxLayout()
 
         self.label_title = QLabel("No Title Yet")
@@ -884,18 +923,18 @@ class ExecDialog(QDialog):
         main_layout.addWidget(self.btn_run)
 
         if self.mode == 'b':
-            coh_layout = QHBoxLayout()
-            lbl_coh = QLabel("Energy-mode coherence(%):")
-            self.spin_coh = QDoubleSpinBox()
-            self.spin_coh.setDecimals(2)
-            self.spin_coh.setSingleStep(0.1)
-            self.spin_coh.setRange(0.0, 100.0)
-            self.spin_coh.setValue(0.0)
-            coh_layout.addWidget(lbl_coh)
-            coh_layout.addWidget(self.spin_coh)
-            main_layout.addLayout(coh_layout)
+            str_layout = QHBoxLayout()
+            lbl_str = QLabel("Energy-mode Evidence Strength(%):")
+            self.spin_str = QDoubleSpinBox()
+            self.spin_str.setDecimals(2)
+            self.spin_str.setSingleStep(0.1)
+            self.spin_str.setRange(0.0, 100.0)
+            self.spin_str.setValue(0.0)
+            str_layout.addWidget(lbl_str)
+            str_layout.addWidget(self.spin_str)
+            main_layout.addLayout(str_layout)
         else:
-            self.spin_coh = None
+            self.spin_str = None
 
         self.plot_widget = MatplotlibWidget(self)
         main_layout.addWidget(self.plot_widget)
@@ -953,12 +992,12 @@ class ExecDialog(QDialog):
 
     def run_energy_mode(self):
         """
-        Run N trials at one coherence, 
+        Run N trials at one evidence_strength, 
         plot full-scale EL, optional time-window plot, then ask to save a single file.
         """
-        coh_val = float(self.spin_coh.value())
+        strength_val = float(self.spin_str.value())
 
-        self.label_info.setText(f"Running trials (coh={coh_val}) …")
+        self.label_info.setText(f"Running trials (strength={strength_val}) …")
         QApplication.processEvents()
 
         self.progress_bar.setRange(0, self.num_trial)
@@ -973,13 +1012,13 @@ class ExecDialog(QDialog):
         gII = self.params.get('gamma_ii', 0.0)
         title_text = (fr'$\gamma_{{EE}}={gEE}, \gamma_{{EI}}={gEI}, '
                       fr'\gamma_{{IE}}={gIE}, \gamma_{{II}}={gII}, '
-                      fr'coh={coh_val}$')
+                      fr'strength={strength_val}$')
 
         for i in range(self.num_trial):
             self.label_info.setText(f"Energy: trial {i+1}/{self.num_trial}")
             QApplication.processEvents()
 
-            trial_data = self.run_single_trial_live(coh_val, i)
+            trial_data = self.run_single_trial_live(strength_val, i)
 
             merged_result_list[offset] = trial_data
             offset += 1
@@ -987,7 +1026,7 @@ class ExecDialog(QDialog):
             self.progress_bar.setValue(i+1)
             QApplication.processEvents()
 
-        # ---------- trial 全跑完，後面繪 energy landscape ----------
+        # ---------- after run trial, plot energy landscape ----------
         self.result_dict['energy'] = merged_result_list
         self.label_info.setText("Done. Plotting …")
         QApplication.processEvents()
@@ -1017,11 +1056,11 @@ class ExecDialog(QDialog):
                 )
                 dlg_tw.exec_()
 
-        self.ask_to_save_file_energy(coh_val)
+        self.ask_to_save_file_energy(strength_val)
 
-    def ask_to_save_file_energy(self, coh_val):
+    def ask_to_save_file_energy(self, strength_val):
         """
-        Build metadata + filename and write one .pkl for that coherence.
+        Build metadata + filename and write one .pkl for that evidence_strength.
         """
         ans = QMessageBox.question(
             self,
@@ -1035,13 +1074,13 @@ class ExecDialog(QDialog):
             gamma_ei = self.params.get('gamma_ei', 0.0)
             gamma_ie = self.params.get('gamma_ie', 0.0)
             gamma_ii = self.params.get('gamma_ii', 0.0)
-            coh = coh_val
+            strength = strength_val
             now_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             energy_dict = self.result_dict.get('energy', {})
 
             metadata = {
                 "gamma_ee": gamma_ee, "gamma_ei": gamma_ei, "gamma_ie": gamma_ie, "gamma_ii": gamma_ii,
-                "coherence": coh, "num_trial": self.num_trial, "threshold": self.threshold,
+                "evidence_strength": strength, "num_trial": self.num_trial, "threshold": self.threshold,
                 "trial_len": self.trial_len, "BG_len": self.BG_len, "input_amp": self.input_amp,
                 "timestamp": now_str,
                 "top_down": self.top_down
@@ -1058,7 +1097,7 @@ class ExecDialog(QDialog):
                 "metadata": metadata,
                 "result_list": energy_dict
             }
-            default_filename = (f"{filename_base}_coh{coh}_"
+            default_filename = (f"{filename_base}_strength{strength}_"
                                 f"trialCount{self.num_trial}_{now_str}.pkl")
 
             default_path = _default_save_path(default_filename)
@@ -1076,30 +1115,30 @@ class ExecDialog(QDialog):
                 self.label_info.setText(f"Energy data saved to: {file_path}")
 
     def run_perf_mode(self):
-        """Sweep six coherences, compute perf/RT, plot, then ask to save six files."""
+        """Sweep six evidence_strengths, compute perf/RT, plot, then ask to save six files."""
         self.label_info.setText("Running new trials for performance/RT ...")
         QApplication.processEvents()
 
         performance_array, rt_mean_array, rt_std_array = [], [], []
         self.result_dict = {}
 
-        total_trials = len(self.coherence_list) * self.num_trial
+        total_trials = len(self.evidence_strength_list) * self.num_trial
         self.progress_bar.setRange(0, total_trials)
         current_trial = 0
 
-        for coh in self.coherence_list:
+        for strength in self.evidence_strength_list:
             ER_count = EL_count = 0
             ER_RT_list = []
-            coherence_result_dict = {}
+            evidence_strength_result_dict = {}
 
             for t in range(self.num_trial):
                 current_trial += 1
                 self.progress_bar.setValue(current_trial)
-                self.label_info.setText(f"coh={coh} | trial {current_trial}/{total_trials}")
+                self.label_info.setText(f"str={strength} | trial {current_trial}/{total_trials}")
                 QApplication.processEvents()
 
-                trial_data = self.run_single_trial_live(coh, t)
-                coherence_result_dict[t] = trial_data
+                trial_data = self.run_single_trial_live(strength, t)
+                evidence_strength_result_dict[t] = trial_data
 
                 if trial_data:
                     ER_flag, EL_flag, ER_RT = trial_data[0], trial_data[1], trial_data[2]
@@ -1110,7 +1149,7 @@ class ExecDialog(QDialog):
 
                 time.sleep(0.01)
 
-            self.result_dict[f"coh{coh}"] = coherence_result_dict
+            self.result_dict[f"str{strength}"] = evidence_strength_result_dict
             total_dec = ER_count + EL_count
             performance_array.append(0 if total_dec == 0 else ER_count / total_dec)
             rt_mean_array.append(float(np.mean(ER_RT_list)) if ER_RT_list else 0.0)
@@ -1121,7 +1160,7 @@ class ExecDialog(QDialog):
 
         dlg = PlotDialog(self)
         dlg.draw_perf_rt(
-            self.coherence_list, performance_array,
+            self.evidence_strength_list, performance_array,
             rt_mean_array, rt_std_array,
             title_text=self.label_title.text()
         )
@@ -1133,11 +1172,11 @@ class ExecDialog(QDialog):
 
 
     def ask_to_save_perf_files(self):
-        """Save one .pkl per coherence with shared metadata."""
+        """Save one .pkl per evidence_strength with shared metadata."""
         ans = QMessageBox.question(
             self,
             "Save multiple files?",
-            "Do you want to save each coherence's result to a separate .pkl file (with metadata)?",
+            "Do you want to save each evidence_strength's result to a separate .pkl file (with metadata)?",
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No
         )
@@ -1148,36 +1187,31 @@ class ExecDialog(QDialog):
             gamma_ii = self.params.get('gamma_ii', 0.0)
             now_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
-            for coh in self.coherence_list:
-                sub_dict = self.result_dict.get(f"coh{coh}", None)
+            for strength in self.evidence_strength_list:
+                sub_dict = self.result_dict.get(f"strength{strength}", None)
                 if sub_dict is None:
                     continue
 
-                # --- 【修正後的邏輯】 ---
-                # 1. 建立基本的 metadata
                 metadata = {
                     "gamma_ee": gamma_ee, "gamma_ei": gamma_ei, "gamma_ie": gamma_ie, "gamma_ii": gamma_ii,
-                    "coherence": coh, "num_trial": self.num_trial, "threshold": self.threshold,
+                    "evidence_strength": strength, "num_trial": self.num_trial, "threshold": self.threshold,
                     "trial_len": self.trial_len, "BG_len": self.BG_len, "input_amp": self.input_amp,
                     "timestamp": now_str,
-                    "top_down": self.top_down # 總是記錄 top_down 狀態
+                    "top_down": self.top_down
                 }
 
-                # 2. 建立基本的檔名
                 filename_base = f"EE{gamma_ee}_EI{gamma_ei}_IE{gamma_ie}_II{gamma_ii}"
 
-                # 3. 如果 top_down 為 True，才加入 S 和 R
                 if self.top_down:
                     metadata['S'] = self.S
                     metadata['R'] = self.R
                     filename_base += f"_S{self.S}_R{self.R}"
                 
-                # 4. 組合最終的檔名和資料
                 my_data = {
                     "metadata": metadata,
                     "result_list": sub_dict
                 }
-                default_filename = (f"{filename_base}_coh{coh}_"
+                default_filename = (f"{filename_base}_strength{strength}_"
                                     f"trialCount{self.num_trial}_{now_str}.pkl")
 
                 default_path = _default_save_path(default_filename)
@@ -1192,13 +1226,13 @@ class ExecDialog(QDialog):
                 if file_path:
                     with open(file_path, 'wb') as f:
                         pickle.dump(my_data, f)
-                    self.label_info.setText(f"Data for coh={coh} saved to: {file_path}")
+                    self.label_info.setText(f"Data for strength={strength} saved to: {file_path}")
                 else:
-                    self.label_info.setText(f"User canceled save dialog for coh={coh}")
+                    self.label_info.setText(f"User canceled save dialog for strength={strength}")
         else:
             self.label_info.setText("User chose not to save any file.")
 
-    def run_single_trial_live(self, coh_val: float, trial_idx: int):
+    def run_single_trial_live(self, str_val: float, trial_idx: int):
         """
         Run BG → Stimulus → Post phases, 
         compute decision flags/RTs with 30-ms smoothing + overlap rule, 
@@ -1253,8 +1287,8 @@ class ExecDialog(QDialog):
         decision_made = False
 
         amp = self.input_amp
-        self.neuron_groups['E_L'].I = amp * (1 - coh_val/100)
-        self.neuron_groups['E_R'].I = amp * (1 + coh_val/100)
+        self.neuron_groups['E_L'].I = amp * (1 - str_val/100)
+        self.neuron_groups['E_R'].I = amp * (1 + str_val/100)
 
         while elapsed < max_dur and not decision_made:
             step = min(chunk, max_dur - elapsed)

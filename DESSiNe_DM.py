@@ -13,7 +13,7 @@ from matplotlib.figure import Figure
 
 # The function we design
 from Network_set import build_network
-from Plot_func import plot_data
+from plot_func import plot_data
 
 # ==== MatplotlibWidget ====
 class MatplotlibWidget(QWidget):
@@ -44,7 +44,7 @@ class RunningTrialDialog(QDialog):
     - params: Dictionary of simulation parameters.
 
     GUI Elements:
-    - SpinBox inputs for background phase length, stimulus duration, sensory input strength, coherence, and threshold.
+    - SpinBox inputs for background phase length, stimulus duration, sensory input strength, evidence_strength, and threshold.
     - A "Start Running" button to run the simulation.
     - A "Reset Network" button to restore the network to its default state.
     """
@@ -65,7 +65,7 @@ class RunningTrialDialog(QDialog):
         self.bg_len_val = 400  # Background phase duration (ms)
         self.duration_val = 1000  # Stimulus phase duration (ms)
         self.sensory_input_val = 0.00156  # Sensory input strength
-        self.coherence_val = 0.0  # Input coherence level
+        self.evidence_strength_val = 0.0  # Input evidence_strength level
         self.threshold_val = 60  # Decision threshold (Hz)
 
         # Create form layout for input fields
@@ -84,9 +84,9 @@ class RunningTrialDialog(QDialog):
         self.sensory_input_input.setDecimals(6)
         self.sensory_input_input.setValue(self.sensory_input_val)
 
-        self.coherence_input = QDoubleSpinBox()
-        self.coherence_input.setDecimals(6)
-        self.coherence_input.setValue(self.coherence_val)
+        self.evidence_strength_input = QDoubleSpinBox()
+        self.evidence_strength_input.setDecimals(6)
+        self.evidence_strength_input.setValue(self.evidence_strength_val)
 
         self.threshold_input = QSpinBox()
         self.threshold_input.setMaximum(1000)
@@ -96,7 +96,7 @@ class RunningTrialDialog(QDialog):
         form_layout.addRow("Background Length:", self.bg_len_input)
         form_layout.addRow("Duration:", self.duration_input)
         form_layout.addRow("Sensory Input:", self.sensory_input_input)
-        form_layout.addRow("Coherence(%):", self.coherence_input)
+        form_layout.addRow("Evidence Strength(%):", self.evidence_strength_input)
         form_layout.addRow("Threshold:", self.threshold_input)
         
         # Add buttons
@@ -131,7 +131,7 @@ class RunningTrialDialog(QDialog):
         BG_len_val = self.bg_len_input.value() * ms
         max_duration_val = self.duration_input.value() * ms
         sensory_input_val = self.sensory_input_input.value()
-        coherence_val = self.coherence_input.value()
+        evidence_strength_val = self.evidence_strength_input.value()
         threshold = self.threshold_input.value()
         lowthreshold = threshold / 2
         chunk = 10 * ms
@@ -183,8 +183,8 @@ class RunningTrialDialog(QDialog):
         time_elapsed = 0 * ms
         decision_made = False
         
-        self.neuron_groups['E_L'].I = sensory_input_val * (1 - coherence_val)
-        self.neuron_groups['E_R'].I = sensory_input_val * (1 + coherence_val)
+        self.neuron_groups['E_L'].I = sensory_input_val * (1 - evidence_strength_val)
+        self.neuron_groups['E_R'].I = sensory_input_val * (1 + evidence_strength_val)
 
         while time_elapsed < max_duration_val and not decision_made:
             remaining = max_duration_val - time_elapsed
@@ -340,7 +340,7 @@ class MainWindow(QMainWindow):
     """
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Parameter Input")
+        self.setWindowTitle("Parameter Setting")
 
         # default parameters
         self.n_E_val = 60

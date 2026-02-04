@@ -2,11 +2,11 @@
 # ------------------------------------------------------------
 # parameters for data_generator
 # ------------------------------------------------------------
-MODE = 'perf'            # 'energy' -> for single coherence; 'perf' -> for multiple coherences
-ENERGY_COHERENCE = 0.0     # Only used when MODE='energy' (percentage, ex: 6.4)
-COHERENCE_LIST = [0, 3.2, 6.4, 12.8, 25.6, 51.2]  # Used when MODE='perf'
+MODE = 'energy'            # 'energy' -> for single coherence; 'perf' -> for multiple coherences
+ENERGY_STRENGTH = 0     # Only used when MODE='energy' (percentage, ex: 6.4)
+STRENGTH_LIST = [0, 3.2, 6.4, 12.8, 25.6, 51.2]  # Used when MODE='perf'
 
-NUM_TRIAL   = 50
+NUM_TRIAL   = 100
 THRESHOLD   = 60
 TRIAL_LEN   = 2000
 BG_LEN      = 300
@@ -41,14 +41,14 @@ def _filename_base_from_params(p: Dict) -> str:
         filename_base += f"_S{p.get('S')}_R{p.get('R')}"
     return filename_base
 
-def _build_metadata(params: Dict, coh: float, num_trial: int, threshold: float, trial_len: float, bg_len: float, input_amp: float) -> Dict:
+def _build_metadata(params: Dict, strength: float, num_trial: int, threshold: float, trial_len: float, bg_len: float, input_amp: float) -> Dict:
     """Create metadata structure consistent with GUI."""
     meta = {
         "gamma_ee": params.get('gamma_ee', 0.0),
         "gamma_ei": params.get('gamma_ei', 0.0),
         "gamma_ie": params.get('gamma_ie', 0.0),
         "gamma_ii": params.get('gamma_ii', 0.0),
-        "coherence": coh,
+        "evidence_strength": strength,
         "num_trial": num_trial,
         "threshold": threshold,
         "trial_len": trial_len,
@@ -68,12 +68,12 @@ def _compose_filepath(params: Dict, meta: Dict, output_dir: str, use_timestamp_n
         os.makedirs(output_dir, exist_ok=True)
 
     base = _filename_base_from_params(params)
-    coh  = meta["coherence"]
+    strength = meta["evidence_strength"]
 
     if use_timestamp_naming:
-        fname = f"{base}_coh{coh}_trialCount{meta['num_trial']}_{meta['timestamp']}.pkl"
+        fname = f"{base}_strength{strength}_trialCount{meta['num_trial']}_{meta['timestamp']}.pkl"
     else:
-        fname = f"{base}_coh{coh}_trialCount{meta['num_trial']}_trialN{trial_n}.pkl"
+        fname = f"{base}_strength{strength}_trialCount{meta['num_trial']}_trialN{trial_n}.pkl"
 
     return os.path.join(output_dir, fname)
 
@@ -84,8 +84,8 @@ def _save_pkl(filepath: str, metadata: Dict, result_list: Dict) -> None:
 def data_producer(
     params: Dict,
     mode: str = "energy",
-    energy_coherence: float = 0.0,
-    coherence_list: List[float] = None,
+    energy_strength: float = 0.0,
+    strength_list: List[float] = None,
     num_trial: int = 50,
     threshold: float = 60.0,
     trial_len: float = 2000.0,
@@ -99,11 +99,11 @@ def data_producer(
     """
     Generate data based on the provided parameters and save it to files.
     """
-    if coherence_list is None:
-        coherence_list = [0, 3.2, 6.4, 12.8, 25.6, 51.2]
+    if strength_list is None:
+        strength_list = [0, 3.2, 6.4, 12.8, 25.6, 51.2]
 
     # Ensure parameters are complete: fill in necessary fields for top-down
-    params = dict(params)  # 淺拷貝不污染外部
+    params = dict(params)
     if not params.get("top_down", False):
         params.setdefault("S", 0.0)
         params.setdefault("R", 0.0)
@@ -111,19 +111,19 @@ def data_producer(
 
     saved_paths: List[str] = []
 
-    def _one_coh_run_and_save(coh: float) -> str:
+    def _one_strength_run_and_save(strength: float) -> str:
         if verbose:
-            print(f"[data_producer] Running: coh={coh}, trials={num_trial} ...")
+            print(f"[data_producer] Running: strength={strength}, trials={num_trial} ...")
         (Result_list, *_rest) = DataGeneration(
             params=params,
             num_trial=num_trial,
-            coherence=coh,
+            evidence_strength=strength, 
             threshold=threshold,
             trial_len=trial_len,
             BG_len=bg_len,
             input_amp=input_amp
         )
-        meta = _build_metadata(params, coh, num_trial, threshold, trial_len, bg_len, input_amp)
+        meta = _build_metadata(params, strength, num_trial, threshold, trial_len, bg_len, input_amp)
         filepath = _compose_filepath(params, meta, output_dir, use_timestamp_naming, trial_n)
         _save_pkl(filepath, meta, Result_list)
         if verbose:
@@ -131,10 +131,10 @@ def data_producer(
         return filepath
 
     if mode.lower() == "energy":
-        saved_paths.append(_one_coh_run_and_save(float(energy_coherence)))
+        saved_paths.append(_one_strength_run_and_save(float(energy_strength)))
     elif mode.lower() == "perf":
-        for coh in coherence_list:
-            saved_paths.append(_one_coh_run_and_save(float(coh)))
+        for strength in strength_list:
+            saved_paths.append(_one_strength_run_and_save(float(strength)))
     else:
         raise ValueError("mode must be 'energy' or 'perf'")
 
@@ -148,8 +148,8 @@ if __name__ == "__main__":
     paths = data_producer(
         params=PARAMS,
         mode=MODE,
-        energy_coherence=ENERGY_COHERENCE,
-        coherence_list=COHERENCE_LIST,
+        energy_strength=ENERGY_STRENGTH,
+        strength_list=STRENGTH_LIST,
         num_trial=NUM_TRIAL,
         threshold=THRESHOLD,
         trial_len=TRIAL_LEN,

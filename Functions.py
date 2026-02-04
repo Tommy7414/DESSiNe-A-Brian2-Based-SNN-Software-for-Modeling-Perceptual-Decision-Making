@@ -14,7 +14,7 @@ from Network_set import build_network
 def DataGeneration( 
     params, 
     num_trial=100, 
-    coherence=0.0, 
+    evidence_strength=0.0, 
     threshold=60.0,     # Decision threshold (Hz) consistent with GUI 
     trial_len=2000.0,   # Total stimulus duration per trial (ms) 
     BG_len=300.0,       # Background activity duration (ms) 
@@ -29,9 +29,9 @@ def DataGeneration(
         as defined in 'Network_set.py'. 
     num_trial : int 
         Number of trials to run and generate. 
-    coherence : float 
+    strength : float 
         Fraction or ratio that biases input to E_R vs. E_L (0.0 for equal input). 
-        e.g., if coherence=0.2, then E_R gets input_amp*(1+0.2), E_L gets input_amp*(1-0.2). 
+        e.g., if strength=0.2, then E_R gets input_amp*(1+0.2), E_L gets input_amp*(1-0.2). 
     threshold : float 
         Decision threshold in Hz. If E_L or E_R exceed this rate, the network is considered to have made a choice. 
     trial_len : float 
@@ -86,8 +86,8 @@ def DataGeneration(
         neuron_groups['Inh_R'].I = 0 
         net.run(BG_len * ms) 
         # sensory input 
-        E_R_input = input_amp * (1.0 + coherence/100) 
-        E_L_input = input_amp * (1.0 - coherence/100) 
+        E_R_input = input_amp * (1.0 + evidence_strength/100) 
+        E_L_input = input_amp * (1.0 - evidence_strength/100) 
         neuron_groups['E_R'].I = E_R_input 
         neuron_groups['E_L'].I = E_L_input 
         # trial phase 
@@ -172,7 +172,7 @@ def DataGeneration(
 def save_result_with_metadata(
     file_path,
     params,
-    coherence,
+    evidence_strength,
     num_trial,
     threshold,
     trial_len,
@@ -188,14 +188,14 @@ def save_result_with_metadata(
         "gamma_ei": params.get('gamma_ei', 0.0),
         "gamma_ie": params.get('gamma_ie', 0.0),
         "gamma_ii": params.get('gamma_ii', 0.0),
-        "coherence": coherence,
+        "evidence_strength": evidence_strength,
         "num_trial": num_trial,
         "threshold": threshold,
         "trial_len": trial_len,
         "BG_len": BG_len,
         "input_amp": input_amp,
         "timestamp": datetime.datetime.now().isoformat(),
-        "top_down": params.get('top_down', False) # 總是記錄 top_down 狀態
+        "top_down": params.get('top_down', False) 
     }
 
     if meta["top_down"]:
@@ -214,8 +214,8 @@ def save_result_with_metadata(
 
 def run_experiment(
     params,
-    coherence_list=[0, 3.2, 6.4, 12.8, 25.6, 51.2],
-    coherence_index=1,
+    evidence_strength_list=[0, 3.2, 6.4, 12.8, 25.6, 51.2],
+    evidence_strength_index=1,
     num_trial=50,
     threshold=40,
     trial_len=2000,
@@ -224,56 +224,50 @@ def run_experiment(
     trial_n='0'
 ):
     """
-    Run DataGeneration for one coherence from the list and save a single .pkl with metadata.
+    Run DataGeneration for one strength from the list and save a single .pkl with metadata.
     """
-    coh = coherence_list[coherence_index]
+    evidence_strength = evidence_strength_list[evidence_strength_index]
 
     (Result_list, total_EL_RT, total_ER_RT, NO_decision, EL_firing, ER_firing) = DataGeneration(
-        params=params, num_trial=num_trial, coherence=coh, threshold=threshold,
+        params=params, num_trial=num_trial, evidence_strength=evidence_strength, threshold=threshold,
         trial_len=trial_len, BG_len=BG_len, input_amp=input_amp
     )
 
-    # --- 【全新的存檔邏輯】 ---
     # 1. 建立 metadata
     meta = {
-        "gamma_ee": params.get('gamma_ee', 0.0),
-        "gamma_ei": params.get('gamma_ei', 0.0),
-        "gamma_ie": params.get('gamma_ie', 0.0),
-        "gamma_ii": params.get('gamma_ii', 0.0),
-        "coherence": coh,
-        "num_trial": num_trial,
-        "threshold": threshold,
-        "trial_len": trial_len,
-        "BG_len": BG_len,
-        "input_amp": input_amp,
-        "timestamp": datetime.datetime.now().isoformat(),
-        "top_down": params.get('top_down', False)
+        "gamma_ee":          params.get('gamma_ee', 0.0),
+        "gamma_ei":          params.get('gamma_ei', 0.0),
+        "gamma_ie":          params.get('gamma_ie', 0.0),
+        "gamma_ii":          params.get('gamma_ii', 0.0),
+        "evidence_strength": evidence_strength,
+        "num_trial":         num_trial,
+        "threshold":         threshold,
+        "trial_len":         trial_len,
+        "BG_len":            BG_len,
+        "input_amp":         input_amp,
+        "timestamp":         datetime.datetime.now().isoformat(),
+        "top_down":          params.get('top_down', False)
     }
-
-    # 2. 建立基本檔名
     filename_base = f"EE{meta['gamma_ee']}_EI{meta['gamma_ei']}_IE{meta['gamma_ie']}_II{meta['gamma_ii']}"
     
-    # 3. 條件式加入 S, R
     if meta["top_down"]:
         meta['S'] = params.get('S')
         meta['R'] = params.get('R')
         filename_base += f"_S{meta['S']}_R{meta['R']}"
 
-    # 4. 組合最終檔名和資料
     folder_name = "data"
     if not os.path.exists(folder_name):
         os.makedirs(folder_name)
     
     filename = os.path.join(
         folder_name,
-        f"{filename_base}_coh{coh}_trialCount{num_trial}_trialN{trial_n}.pkl"
+        f"{filename_base}_strength{evidence_strength}_trialCount{num_trial}_trialN{trial_n}.pkl"
     )
     data_to_save = {
         "metadata": meta,
         "result_list": Result_list
     }
 
-    # 5. 儲存包含 metadata 的新格式檔案
     with open(filename, 'wb') as f:
         pickle.dump(data_to_save, f)
 
@@ -282,9 +276,10 @@ def run_experiment(
 
 def load_and_merge_data_with_metadata(file_paths, initial_offset=0, step=100):
     """
-    Load several .pkl files, 
-    check metadata match, and merge trials into one dict 
-    (reindexing keys with an offset"""
+    Load several .pkl files,
+    check metadata match (only: evidence_strength / top_down / S,R),
+    and merge trials into one dict (reindexing keys with an offset).
+    """
     if not file_paths:
         raise ValueError("No file paths given.")
 
@@ -302,35 +297,129 @@ def load_and_merge_data_with_metadata(file_paths, initial_offset=0, step=100):
         meta = loaded_data["metadata"]
         res  = loaded_data["result_list"]
 
+        # ---- strict requirement: must have evidence_strength (no downward compatibility) ----
+        if "evidence_strength" not in meta:
+            raise ValueError(f"File {path} metadata missing required key: 'evidence_strength'")
+
         if base_metadata is None:
             base_metadata = meta
+            # also enforce base has evidence_strength
+            if "evidence_strength" not in base_metadata:
+                raise ValueError(f"Base file {path} metadata missing required key: 'evidence_strength'")
         else:
-            # --- 【新增的一致性檢查】 ---
             base_td = base_metadata.get('top_down', False)
             meta_td = meta.get('top_down', False)
 
             error_msg = ""
-            if base_metadata.get("coherence") != meta.get("coherence"):
-                error_msg = "Coherence mismatch"
+            # FIX: compare evidence_strength, not "strength"
+            if base_metadata["evidence_strength"] != meta["evidence_strength"]:
+                error_msg = "Evidence Strength mismatch"
             elif base_td != meta_td:
                 error_msg = "top_down flag mismatch"
             elif base_td and (base_metadata.get('S') != meta.get('S') or base_metadata.get('R') != meta.get('R')):
                 error_msg = "S or R values mismatch"
-            # 你也可以加入對 gamma 值的檢查
-            
+
             if error_msg:
                 raise ValueError(
                     f"Metadata mismatch in file {path}: {error_msg}.\n"
                     f"Base: {base_metadata}\n"
                     f"Current: {meta}"
                 )
-        
+
         # Merge data
-        shifted = { (k + key_offset): v for k, v in res.items() }
+        shifted = {(k + key_offset): v for k, v in res.items()}
         merged_dict.update(shifted)
         key_offset += step
 
     return merged_dict, base_metadata
+
+def _strength_to_log10(strength_list, zero_replacement=1e-3):
+    """
+    Convert strength (%) to log10(x) for plotting.
+    - x==0 -> zero_replacement (avoid log10(0))
+    Return: x_log10, x_safe
+    """
+    x = np.asarray(strength_list, dtype=float)
+    if np.any(x < 0):
+        raise ValueError(f"evidence_strength contains negative values: {x[x < 0]}")
+    x_safe = np.where(x == 0, float(zero_replacement), x)
+    x_log10 = np.log10(x_safe)
+    return x_log10, x_safe
+
+def _apply_log10_ticks_from_strengths(ax, strength_list, zero_replacement=1e-3):
+    """
+    Put xticks at log10(strength), but label them using original strength values.
+    Ensures 0 is shown as '0' on axis (mapped to log10(zero_replacement)).
+    """
+    xs = np.asarray(strength_list, dtype=float)
+
+    # unique sorted ticks
+    ticks = np.unique(xs)
+    ticks_safe = np.where(ticks == 0, float(zero_replacement), ticks)
+    ax.set_xticks(np.log10(ticks_safe))
+
+    def _fmt(v):
+        if abs(v) < 1e-12:
+            return "0"
+        # keep 3.2 / 12.8 etc
+        s = f"{v:.6g}"
+        return s
+
+    ax.set_xticklabels([_fmt(v) for v in ticks])
+
+def _fit_psychometric_logistic_log10(x, y, n_alpha=200, n_beta=200):
+    """
+    Fit y ~ A + (B-A) * sigmoid((log10(x) - alpha)/beta)
+    Return (A, B, alpha, beta)
+    """
+    x = np.asarray(x, float)
+    y = np.asarray(y, float)
+
+    # avoid log issues
+    x = np.clip(x, 1e-6, None)
+    logx = np.log10(x)
+
+    # search ranges (夠用、穩定，不會太慢)
+    a_min, a_max = float(logx.min()) - 0.5, float(logx.max()) + 0.5
+    b_min, b_max = 0.05, 1.5
+
+    alphas = np.linspace(a_min, a_max, n_alpha)
+    betas  = np.linspace(b_min, b_max, n_beta)
+
+    best = None
+    best_sse = np.inf
+
+    # grid search alpha,beta; given them, A,C are linear => least squares
+    for alpha in alphas:
+        # vectorize beta loop a bit
+        for beta in betas:
+            f = 1.0 / (1.0 + np.exp(-(logx - alpha) / beta))  # sigmoid
+
+            # y = A + C*f ; solve A,C via least squares
+            X = np.column_stack([np.ones_like(f), f])
+            A, C = np.linalg.lstsq(X, y, rcond=None)[0]
+            B = A + C
+
+            # optional: clamp to [0,1] if you want nice psychometric bounds
+            A2 = np.clip(A, 0.0, 1.0)
+            B2 = np.clip(B, 0.0, 1.0)
+            C2 = B2 - A2
+
+            yhat = A2 + C2 * f
+            sse = float(np.sum((y - yhat) ** 2))
+
+            if sse < best_sse:
+                best_sse = sse
+                best = (A2, B2, float(alpha), float(beta))
+
+    return best  # (A, B, alpha, beta)
+
+def _psychometric_curve(x, A, B, alpha, beta):
+    x = np.asarray(x, float)
+    x = np.clip(x, 1e-6, None)
+    logx = np.log10(x)
+    f = 1.0 / (1.0 + np.exp(-(logx - alpha) / beta))
+    return A + (B - A) * f
 
 def calculate_performance(result_list): 
     """ 
@@ -371,70 +460,67 @@ def calculate_fail_rate(result_list):
     no_decisions = sum(trial is None for trial in result_list.values()) 
     return no_decisions / total 
 
-def plot_performance_and_rt( 
-    coherence_list, 
-    results_polA, 
-    results_polB, 
-    labelA="Pol0", 
-    labelB="Pol2" 
-): 
-    """ 
-    Plot performance vs. coherence and Reaction Time vs. coherence (with error bars) 
-    for two sets of results. Each set is a dict keyed by 'coh{value}', with  
-    "Performance", "Avg_ER_Reaction_Time", and "Std_ER_Reaction_Time". 
-    """ 
-    perfA, rtA, rtStdA = [], [], [] 
-    perfB, rtB, rtStdB = [], [], [] 
-    for c in coherence_list: 
-        coh_key = f"coh{c}" 
-        # polA 
-        if coh_key in results_polA: 
-            pA = results_polA[coh_key]["Performance"] 
-            rA = results_polA[coh_key]["Avg_ER_Reaction_Time"] 
-            rsA= results_polA[coh_key]["Std_ER_Reaction_Time"] 
-        else: 
-            pA, rA, rsA = None, None, None 
-        perfA.append(pA) 
-        rtA.append(rA) 
-        rtStdA.append(rsA) 
-        # polB 
-        if coh_key in results_polB: 
-            pB = results_polB[coh_key]["Performance"] 
-            rB = results_polB[coh_key]["Avg_ER_Reaction_Time"] 
-            rsB= results_polB[coh_key]["Std_ER_Reaction_Time"] 
-        else: 
-            pB, rB, rsB = None, None, None 
-        perfB.append(pB) 
-        rtB.append(rB) 
-        rtStdB.append(rsB) 
-    # Convert None -> np.nan for plotting 
-    perfA = np.array([p if p is not None else np.nan for p in perfA]) 
-    rtA   = np.array([r if r is not None else np.nan for r in rtA]) 
-    rtStdA= np.array([s if s is not None else np.nan for s in rtStdA]) 
-    perfB = np.array([p if p is not None else np.nan for p in perfB]) 
-    rtB   = np.array([r if r is not None else np.nan for r in rtB]) 
-    rtStdB= np.array([s if s is not None else np.nan for s in rtStdB]) 
-    # Psychometric curve 
-    plt.figure(figsize=(10, 5)) 
-    plt.plot(coherence_list, perfA, 'o-', label=labelA) 
-    plt.plot(coherence_list, perfB, 'o-', label=labelB) 
-    plt.title("Psychometric Curve (Performance vs. Coherence)") 
-    plt.xlabel("Task Difficulty (%)") 
-    plt.ylabel("Performance (fraction of E_R decisions)") 
-    plt.grid(True) 
-    plt.xscale("log") 
-    plt.legend() 
-    plt.show() 
-    # Reaction time with error bars 
-    plt.figure(figsize=(10, 5)) 
-    plt.errorbar(coherence_list, rtA, yerr=rtStdA, fmt='o-', capsize=5, label=labelA) 
-    plt.errorbar(coherence_list, rtB, yerr=rtStdB, fmt='o-', capsize=5, label=labelB) 
-    plt.title("Reaction Time vs. Coherence") 
-    plt.xlabel("Task Difficulty (%)") 
-    plt.ylabel("Reaction Time (ms)") 
-    plt.grid(True) 
-    plt.legend() 
-    plt.show() 
+def plot_performance_and_rt(
+    strength_list,
+    results_polA,
+    results_polB,
+    labelA="Pol0",
+    labelB="Pol2"
+):
+    perfA, rtA, rtStdA = [], [], []
+    perfB, rtB, rtStdB = [], [], []
+
+    for ss in strength_list:
+        strength_key = f"strength{ss}"
+        if strength_key in results_polA:
+            pA = results_polA[strength_key]["Performance"]
+            rA = results_polA[strength_key]["Avg_ER_Reaction_Time"]
+            rsA= results_polA[strength_key]["Std_ER_Reaction_Time"]
+        else:
+            pA, rA, rsA = None, None, None
+        perfA.append(pA); rtA.append(rA); rtStdA.append(rsA)
+
+        if strength_key in results_polB:
+            pB = results_polB[strength_key]["Performance"]
+            rB = results_polB[strength_key]["Avg_ER_Reaction_Time"]
+            rsB= results_polB[strength_key]["Std_ER_Reaction_Time"]
+        else:
+            pB, rB, rsB = None, None, None
+        perfB.append(pB); rtB.append(rB); rtStdB.append(rsB)
+
+    perfA = np.array([p if p is not None else np.nan for p in perfA])
+    rtA   = np.array([r if r is not None else np.nan for r in rtA])
+    rtStdA= np.array([s if s is not None else np.nan for s in rtStdA])
+    perfB = np.array([p if p is not None else np.nan for p in perfB])
+    rtB   = np.array([r if r is not None else np.nan for r in rtB])
+    rtStdB= np.array([s if s is not None else np.nan for s in rtStdB])
+
+    # --- x transform ---
+    x_log10, _ = _strength_to_log10(strength_list, zero_replacement=1e-3)
+
+    # Psychometric curve
+    plt.figure(figsize=(10, 5))
+    plt.plot(x_log10, perfA, 'o-', label=labelA)
+    plt.plot(x_log10, perfB, 'o-', label=labelB)
+    plt.title("Psychometric Curve (Performance vs. Evidence Strength)")
+    plt.xlabel("Evidence Strength (%)")
+    plt.ylabel("Performance (fraction of E_R decisions)")
+    plt.grid(True)
+    _apply_log10_ticks_from_strengths(plt.gca(), strength_list, zero_replacement=1e-3)
+    plt.legend()
+    plt.show()
+
+    # Reaction time with error bars
+    plt.figure(figsize=(10, 5))
+    plt.errorbar(x_log10, rtA, yerr=rtStdA, fmt='o-', capsize=5, label=labelA)
+    plt.errorbar(x_log10, rtB, yerr=rtStdB, fmt='o-', capsize=5, label=labelB)
+    plt.title("Reaction Time vs. Evidence Strength")
+    plt.xlabel("Evidence Strength (%)")
+    plt.ylabel("Reaction Time (ms)")
+    plt.grid(True)
+    _apply_log10_ticks_from_strengths(plt.gca(), strength_list, zero_replacement=1e-3)
+    plt.legend()
+    plt.show()
 
 def compute_non_regret_performance(result_list, bm): 
     """ 
@@ -480,20 +566,20 @@ def plot_non_regret(bm, NR_results_dict, labels_dict, title="Non-Regret Performa
 
 def full_analysis_pipeline(file_paths_dict, benchmark_array): 
     """ 
-    Merge data from multiple .pkl files (grouped by coherence), then compute performance,  
-    reaction times, fail rates, and non-regret metrics for each coherence. 
+    Merge data from multiple .pkl files (grouped by evidence strength), then compute performance,  
+    reaction times, fail rates, and non-regret metrics for each evidence strength. 
     """ 
     all_merged_results = {} 
     offset = 0 
-    for coh, paths in file_paths_dict.items(): 
+    for strength, paths in file_paths_dict.items(): 
         merged_dict, offset = load_and_merge_data_with_metadata(paths, initial_offset=offset, step=100) 
-        all_merged_results[f"coh{coh}"] = merged_dict 
+        all_merged_results[f"strength{strength}"] = merged_dict 
     perf_dict = {} 
     non_regret_dict = {} 
-    for coh, merged_dict in all_merged_results.items(): 
+    for strength, merged_dict in all_merged_results.items(): 
         perf, rt_mean, rt_std = calculate_performance(merged_dict) 
         fail_rate = calculate_fail_rate(merged_dict) 
-        perf_dict[coh] = { 
+        perf_dict[strength] = { 
             "Performance": perf, 
             "Avg_ER_Reaction_Time": rt_mean, 
             "Std_ER_Reaction_Time": rt_std, 
@@ -501,7 +587,7 @@ def full_analysis_pipeline(file_paths_dict, benchmark_array):
         } 
         # Non-Regret 
         nr_data = compute_non_regret_performance(merged_dict, benchmark_array) 
-        non_regret_dict[coh] = nr_data 
+        non_regret_dict[strength] = nr_data 
     return all_merged_results, perf_dict, non_regret_dict 
 
 def plot_energy_landscapes(
@@ -538,10 +624,8 @@ def plot_energy_landscapes(
         return np.asarray(td[5], dtype=float)
 
     def _inh_arr(td):
-        # 抑制端：自己算 IR-IL（index 9 - index 8）
         ir = np.asarray(td[9], dtype=float)
         il = np.asarray(td[8], dtype=float)
-        # 對齊長度（保險起見）
         n = min(ir.size, il.size)
         return ir[:n] - il[:n]
 
@@ -675,14 +759,12 @@ def plot_energy_landscapes_on_figure(
         if not vel_map:
             return False
 
-        # 展開成表格
         df = pd.DataFrame([(x, v) for x, arr in vel_map.items() for v in arr],
                         columns=['x', 'v'])
         df = df[np.isfinite(df['x']) & np.isfinite(df['v'])]
         if df.empty:
             return False
 
-        # ---- 只積分在 [-B, B]，沒有 B 或 B<=0 時就用整個 [-lim, lim] ----
         if boundary_value is not None and boundary_value > 0:
             x0 = max(-lim, -abs(boundary_value))
             x1 = min( lim,  abs(boundary_value))
@@ -693,7 +775,6 @@ def plot_energy_landscapes_on_figure(
         if df.empty:
             return False
 
-        # 分箱（以 0.1 為寬；邊界含入）
         bin_w = 0.1
         bins = np.arange(x0, x1 + bin_w*0.999 + 1e-12, bin_w)
         if len(bins) < 2:
@@ -704,19 +785,15 @@ def plot_energy_landscapes_on_figure(
         if g.empty:
             return False
 
-        # 用箱中心作為 x
         g['x'] = [ (b.left + b.right)/2 for b in g.index.categories ]
         g = g.sort_values('x')
 
-        # ---- 積分與對齊 ----
-        # 只對 [-B, B] 的資料做累積；若有 B，就讓 U(-B)=0；否則維持舊行為（U(0)=0）
         g['U'] = (-g['v']).cumsum()
         if boundary_value is not None and boundary_value > 0:
             g['U'] -= g['U'].iloc[0]  # U(-B) = 0
         else:
-            g['U'] -= g['U'].iloc[np.argmin(np.abs(g['x']))]  # U(0) = 0（舊行為）
+            g['U'] -= g['U'].iloc[np.argmin(np.abs(g['x']))] 
 
-        # 繪圖
         kw = {'linestyle': linestyle}
         if color is not None:
             kw['color'] = color
@@ -725,24 +802,20 @@ def plot_energy_landscapes_on_figure(
         return True
 
     def _best_rt_index(RT, t, dt, arr_len, stepN):
-        """回傳最合理的 rt_idx；同時嘗試 RT 與 RT*10（舊存法）。"""
         candidates_ms = []
         if RT is not None:
-            candidates_ms = [float(RT), float(RT)*10.0]  # 兩種單位都試
+            candidates_ms = [float(RT), float(RT)*10.0]
         scores = []
         for RT_ms in candidates_ms:
             idx = int(round((RT_ms - t[0]) / dt))
             idx = max(0, min(idx, arr_len - 1 - stepN))
-            # 評分：窗口 0–200ms 內能留下多少點
             start = idx + int(round(0 / dt))
             end   = idx + int(round(200.0 / dt))
             valid = max(0, min(end, arr_len - stepN) - max(0, start))
             scores.append((valid, idx))
         if scores:
-            # 選擇 valid 最大者
             scores.sort(reverse=True)
             return scores[0][1]
-        # 沒有 RT（None）時
         return None
 
     dt, stepN = _estimate_dt_stepN()
@@ -785,7 +858,6 @@ def plot_energy_landscapes_on_figure(
                 end   = rt_idx + int(round(ed_ms / dt))
 
             if start >= arr.size - stepN:
-                # fallback：仍越界就改用絕對時間窗
                 start = int(round(st_ms / dt))
                 end   = int(round(ed_ms / dt))
                 if start >= arr.size - stepN:
@@ -804,40 +876,55 @@ def plot_energy_landscapes_on_figure(
     if plotted or ax.has_data():
         ax.legend(frameon=False)
 
-def plot_perf_rt_on_figure(coh_list, perf, rt_mean, rt_std, fig=None, ax=None):
-    """Draw combined Performance (left y) and RT (right y) in one figure"""
+def plot_perf_rt_on_figure(strength_list, perf, rt_mean, rt_std, fig=None, ax=None):
+    """Draw combined Performance (left y) and RT (right y) in one figure, with log10 x-axis."""
     if fig is None or ax is None:
         fig, ax = plt.subplots(figsize=(6, 4))
 
-    ax.plot(coh_list, perf, '-o', color='C0', label='Performance')
-    ax.set_xlabel('Coherence (%)')
+    x_arr  = np.array([float(s) for s in strength_list], dtype=float)
+    x_safe = np.where(x_arr == 0.0, 1e-3, x_arr)
+
+    # log10 axis, draw from 1
+    ax.set_xscale('log', base=10)
+    ax.set_xlim(1.0, max(100.0, float(np.max(x_arr[x_arr > 0])) * 1.15))
+
+    # hide marker at the fake 0.001 point (index 0)
+    mark_idx = list(range(1, len(x_safe)))
+
+    ax.plot(x_safe, perf, '-o', markevery=mark_idx, color='C0', label='Performance')
+    ax.set_xlabel('Evidence Strength (%)')
     ax.set_ylabel('Performance (fraction E_R)', color='C0')
     ax.tick_params(axis='y', labelcolor='C0')
-    ax.set_ylim(0, 1.05)   
+    ax.set_ylim(0, 1.05)
     ax.grid(True, linestyle='--', alpha=.3)
 
     ax_rt = ax.twinx()
-    offset = 0.6          
-    x_rt   = np.array(coh_list) + offset
 
+    # RT line includes the fake point so the curve shape matches,
+    # but errorbars/markers exclude it.
+    ax_rt.plot(x_safe, rt_mean, '--', color='C3', label='Reaction Time')
     ax_rt.errorbar(
-        x_rt, rt_mean, yerr=rt_std,
-        fmt='s--', color='C3',
-        ecolor='C3', elinewidth=1, capsize=4,
-        label='Reaction Time'
+        x_safe[1:], np.array(rt_mean)[1:], yerr=np.array(rt_std)[1:],
+        fmt='s', capsize=4, color='C3', ecolor='C3', elinewidth=1
     )
+
     ax_rt.set_ylabel('Reaction Time (ms)', color='C3')
     ax_rt.tick_params(axis='y', labelcolor='C3')
-    ymax_rt = max(m+s for m, s in zip(rt_mean, rt_std))
+    ymax_rt = max(m+s for m, s in zip(rt_mean, rt_std)) if len(rt_mean) else 1.0
     ax_rt.set_ylim(0, ymax_rt * 1.1)
+
+    # ticks like paper (optional but looks good)
+    tick_vals = [1.0, 3.2, 6.4, 12.8, 25.6, 51.2, 100.0]
+    xmax = ax.get_xlim()[1]
+    tick_vals = [t for t in tick_vals if 1.0 <= t <= xmax]
+    ax.set_xticks(tick_vals)
+    ax.set_xticklabels([f"{t:g}" for t in tick_vals])
 
     lines1, labs1 = ax.get_legend_handles_labels()
     lines2, labs2 = ax_rt.get_legend_handles_labels()
-    ax.legend(
-        lines1 + lines2, labs1 + labs2,
-        loc='upper center', bbox_to_anchor=(0.5, 1.18),
-        ncol=2, frameon=False
-    )
+    ax.legend(lines1 + lines2, labs1 + labs2,
+              loc='upper center', bbox_to_anchor=(0.5, 1.18),
+              ncol=2, frameon=False)
 
     fig.tight_layout()
     return fig, ax, ax_rt
