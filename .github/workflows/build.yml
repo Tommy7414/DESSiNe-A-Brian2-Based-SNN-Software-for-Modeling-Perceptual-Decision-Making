@@ -180,10 +180,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
         run: |
-          gh release view "$TAG" >/dev/null 2>&1 || \
+          gh release view "$TAG" -R "$REPO" >/dev/null 2>&1 || \
           gh release create "$TAG" \
+            -R "$REPO" \
             --title "$TAG" \
             --notes "Automated build for $TAG"
 
-          gh release upload "$TAG" release-assets/**/*.zip --clobber
+          gh release upload "$TAG" release-assets/**/*.zip \
+            -R "$REPO" \
+            --clobber
