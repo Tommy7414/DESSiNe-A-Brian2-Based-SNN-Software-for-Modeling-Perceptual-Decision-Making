@@ -2,9 +2,8 @@ name: Build Binary with PyInstaller
 
 on:
   workflow_dispatch:
-  # 等確認穩定後，再決定要不要打開這個
-  # push:
-  #   branches: ["main"]
+  push:
+    branches: ["main"]
 
 jobs:
   build:
