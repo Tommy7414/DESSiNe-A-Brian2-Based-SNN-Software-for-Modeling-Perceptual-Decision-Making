@@ -10,9 +10,6 @@ fix_meta_strength.py
 build/
 dist/
 
-# Generated experiment data
-data/*.pkl
-
 # Keep the folder itself if you want
 !data/.gitkeep
 .DS_Store
