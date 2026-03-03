@@ -81,7 +81,7 @@ def _save_pkl(filepath: str, metadata: Dict, result_list: Dict) -> None:
     with open(filepath, "wb") as f:
         pickle.dump({"metadata": metadata, "result_list": result_list}, f)
 
-def data_producer(
+def data_generator(
     params: Dict,
     mode: str = "energy",
     energy_strength: float = 0.0,
@@ -145,7 +145,7 @@ def data_producer(
 # Run directly if this script is executed
 # ------------------------------------------------------------
 if __name__ == "__main__":
-    paths = data_producer(
+    paths = data_generator(
         params=PARAMS,
         mode=MODE,
         energy_strength=ENERGY_STRENGTH,

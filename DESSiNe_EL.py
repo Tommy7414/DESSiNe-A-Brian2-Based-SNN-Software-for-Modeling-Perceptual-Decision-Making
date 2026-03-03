@@ -15,6 +15,7 @@ except ModuleNotFoundError:  # PyInstaller edge case
     sys.modules['numpy.core.multiarray'] = importlib.import_module('numpy.core._multiarray_umath')
 
 from PyQt5.QtCore import Qt, pyqtSignal, QStandardPaths
+
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QDialog, QFileDialog,
     QLabel, QCheckBox, QDoubleSpinBox, QSpinBox,
@@ -29,11 +30,9 @@ import matplotlib.pyplot as plt
 from brian2 import ms, Hz
 
 from Functions import (
-    DataGeneration,
     plot_energy_landscapes_on_figure,
     plot_perf_rt_on_figure,
     load_and_merge_data_with_metadata,
-    _apply_log10_ticks_from_strengths,
     _fit_psychometric_logistic_log10,
     _psychometric_curve
 )
@@ -48,7 +47,9 @@ def _default_save_path(default_filename: str) -> str:
     """Put a default save path under Documents."""
     base_dir = QStandardPaths.writableLocation(QStandardPaths.DocumentsLocation)
     if not base_dir:
-        base_dir = os.path.expanduser("~/Documents")
+        base_dir = os.path.expanduser("~")
+    os.makedirs(base_dir, exist_ok=True)
+    
     return os.path.join(base_dir, _safe_filename(default_filename))
 
 ####################
@@ -62,14 +63,12 @@ class MatplotlibWidget(QWidget):
         layout = QVBoxLayout()
         layout.addWidget(self.canvas)
         self.setLayout(layout)
-
     def get_figure(self):
         """Return the embedded Figure so callers can draw on it."""
         return self.canvas.figure
     def draw(self):
         """Refresh the canvas on screen."""
         self.canvas.draw()
-
 
 ###############
 # PlotDialog
@@ -138,7 +137,6 @@ class PlotDialog(QDialog):
             ax.set_title(title_text, fontsize=12)
         self.plot_widget.draw()
 
-
 ###########################
 # TimeWindowInputDialog
 ###########################
@@ -203,7 +201,7 @@ class TimeWindowInputDialog(QDialog):
 
 
 ###################################################
-# 0) ModeSelectionDialog: The first dialog to choose mode
+# ModeSelectionDialog: The first dialog to choose mode
 ###################################################
 class ModeSelectionDialog(QDialog):
     """First step—choose “existing files”, “energy”, or “performance/RT”."""
@@ -244,7 +242,7 @@ class ModeSelectionDialog(QDialog):
 
 
 ###################################################
-# (a) PlotExistingDialog: Load data and plot
+# PlotExistingDialog: Load data and plot
 ###################################################
 class PlotExistingDialog(QDialog):
     """
@@ -321,30 +319,29 @@ class PlotExistingDialog(QDialog):
         else:
             self.label_info.setText("user canceled file dialog")
         
-    def load_and_merge(self):
-        """
-        Check if all selected files have the same EE/EI/IE/II and strengths,
-        if not, raise error; otherwise merge all files using load_and_merge_data.
-        Return merged_dict and parsed base_info tuple.
-        """
-        if not self.file_paths:
-            QMessageBox.warning(self, "warning", "select more than one file!")
-            return None, None
+    # def load_and_merge(self):
+    #     """
+    #     Check if all selected files have the same EE/EI/IE/II and strengths,
+    #     if not, raise error; otherwise merge all files using load_and_merge_data.
+    #     Return merged_dict and parsed base_info tuple.
+    #     """
+    #     if not self.file_paths:
+    #         QMessageBox.warning(self, "warning", "select more than one file!")
+    #         return None, None
 
-        from Functions import load_and_merge_data_with_metadata
-        try:
-            merged_dict, base_md = load_and_merge_data_with_metadata(
-                file_paths=self.file_paths,
-                initial_offset=0,
-                step=100
-            )
-            return merged_dict, base_md
-        except ValueError as e:
-            QMessageBox.critical(self, "File Error", str(e))
-            return None, None
-        except Exception as e:
-            QMessageBox.critical(self, "Error", str(e))
-            return None, None
+    #     try:
+    #         merged_dict, base_md = load_and_merge_data_with_metadata(
+    #             file_paths=self.file_paths,
+    #             initial_offset=0,
+    #             step=100
+    #         )
+    #         return merged_dict, base_md
+    #     except ValueError as e:
+    #         QMessageBox.critical(self, "File Error", str(e))
+    #         return None, None
+    #     except Exception as e:
+    #         QMessageBox.critical(self, "Error", str(e))
+    #         return None, None
 
     def on_plot_energy_clicked(self, full_scale: bool):
         """
@@ -670,7 +667,7 @@ class PlotExistingDialog(QDialog):
         dlg.exec_()
 
 ###################################################
-# 1) TopDownDialog
+# TopDownDialog
 ###################################################
 class TopDownDialog(QDialog):
     """Collect top-down setting: on/off, S, R (and n_Ctr when on)."""
@@ -738,7 +735,7 @@ class TopDownDialog(QDialog):
 
 
 ###################################################
-# 2) ParamDialog
+# ParamDialog
 ###################################################
 class ParamDialog(QDialog):
     """Collect network (γ’s, sizes) and trial settings."""
@@ -871,7 +868,7 @@ class ParamDialog(QDialog):
 
 
 ###################################################
-# 3) ExecDialog
+# ExecDialog
 ###################################################
 class ExecDialog(QDialog):
     """
@@ -975,7 +972,6 @@ class ExecDialog(QDialog):
             title_str += f", S={self.S}, R={self.R}, n_Ctr={self.params['n_Ctr']}"
         self.label_title.setText(title_str)
         self.label_info.setText("Parameters loaded. Click 'Run' to start.")
-        from Network_set import build_network
         self.net, eqs, self.neuron_groups, self.synapses, self.monitors = \
             build_network(self.params)
         self.net.store('default') 
@@ -1052,7 +1048,7 @@ class ExecDialog(QDialog):
                     sources=[(merged_result_list, None, None)],
                     time_window=tw_dlg.time_window,
                     plot_full_scale=False, EXC=True, lim=40,
-                    title=f"Energy landscape (time-window)"
+                    title="Energy landscape (time-window)"
                 )
                 dlg_tw.exec_()
 
@@ -1149,7 +1145,7 @@ class ExecDialog(QDialog):
 
                 time.sleep(0.01)
 
-            self.result_dict[f"str{strength}"] = evidence_strength_result_dict
+            self.result_dict[f"strength{strength}"] = evidence_strength_result_dict
             total_dec = ER_count + EL_count
             performance_array.append(0 if total_dec == 0 else ER_count / total_dec)
             rt_mean_array.append(float(np.mean(ER_RT_list)) if ER_RT_list else 0.0)
@@ -1218,7 +1214,7 @@ class ExecDialog(QDialog):
                 file_path, _ = QFileDialog.getSaveFileName(
                     self,
                     "Save Energy File",
-                    default_path,  # ← 給完整路徑
+                    default_path,
                     "Pickle Files (*.pkl);;All Files (*)"
                 )
                 if file_path and not file_path.lower().endswith(".pkl"):
@@ -1359,24 +1355,25 @@ class ExecDialog(QDialog):
         ER_RT = EL_RT = None
         NO_decision = NO_decision_2 = 0
 
-        if len(idx_high_EL)==0 and len(idx_high_ER)==0:
+        if len(idx_high_EL) == 0 and len(idx_high_ER) == 0:
             NO_decision = 1
-        elif len(idx_high_EL):
+        elif len(idx_high_EL) > 0 and len(idx_high_ER) > 0:
+            NO_decision_2 = 1  
+        elif len(idx_high_EL) > 0:
             overlap = set(idx_high_EL).intersection(idx_low_ER)
             if len(idx_low_ER)==0 or len(overlap)/len(idx_high_EL) < 0.3:
                 EL_flag = 1
                 EL_RT   = idx_high_EL[0]/10.0
             else:
                 NO_decision = 1
-        elif len(idx_high_ER):
+        elif len(idx_high_ER) > 0:
             overlap = set(idx_high_ER).intersection(idx_low_EL)
             if len(idx_low_EL)==0 or len(overlap)/len(idx_high_ER) < 0.3:
                 ER_flag = 1
                 ER_RT   = idx_high_ER[0]/10.0
             else:
                 NO_decision = 1
-        else:
-            NO_decision_2 = 1     # 雙邊同時爆
+            
 
         #######################
         # 5. merge trial_data（DataGeneration has similar structure）
@@ -1394,6 +1391,7 @@ class ExecDialog(QDialog):
             trial_data = None
 
         return trial_data
+
 ###################################################
 # MainWindow
 ###################################################
@@ -1502,7 +1500,6 @@ class EnergyBoundaryDialog(QDialog):
             )
         ax.set_title(self.windowTitle())
         self.plot_widget.draw()
-
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

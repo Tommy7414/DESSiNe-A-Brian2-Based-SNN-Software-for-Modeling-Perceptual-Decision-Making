@@ -112,7 +112,7 @@ def DataGeneration(
                 # --- for E_R win clearly --- 
                 if (len(idx_high_ER) > 0 and 
                     (len(idx_low_EL) == 0 or 
-                    float(len(list(set(idx_high_ER).intersection(idx_low_EL)))/ len(idx_high_ER)) < 0.6)): 
+                    float(len(list(set(idx_high_ER).intersection(idx_low_EL)))/ len(idx_high_ER)) < 0.3)): 
                      
                     neuron_groups['E_L'].I   = 0 
                     neuron_groups['E_R'].I   = 0 
@@ -129,14 +129,14 @@ def DataGeneration(
                         list(difference_ER_EL), 
                         list(rateER), 
                         list(rateEL), 
-                        list(monitors['rate_IL'].smooth_rate(width=20*ms)/Hz), 
-                        list(monitors['rate_IR'].smooth_rate(width=20*ms)/Hz) 
+                        list(monitors['rate_IL'].smooth_rate(width=30*ms)/Hz), 
+                        list(monitors['rate_IR'].smooth_rate(width=30*ms)/Hz) 
                     ] 
                     decision_made = True 
                 # --- for E_L win clearly -- 
                 elif (len(idx_high_EL) > 0 and 
                     (len(idx_low_ER) == 0 or 
-                    float(len(list(set(idx_high_EL).intersection(idx_low_ER)))/ len(idx_high_EL)) < 0.6)): 
+                    float(len(list(set(idx_high_EL).intersection(idx_low_ER)))/ len(idx_high_EL)) < 0.3)): 
          
                     neuron_groups['E_L'].I   = 0 
                     neuron_groups['E_R'].I   = 0 
@@ -153,8 +153,8 @@ def DataGeneration(
                         list(difference_ER_EL), 
                         list(rateER), 
                         list(rateEL), 
-                        list(monitors['rate_IL'].smooth_rate(width=20*ms)/Hz), 
-                        list(monitors['rate_IR'].smooth_rate(width=20*ms)/Hz) 
+                        list(monitors['rate_IL'].smooth_rate(width=30*ms)/Hz), 
+                        list(monitors['rate_IR'].smooth_rate(width=30*ms)/Hz) 
                     ] 
                     decision_made = True 
                 else: 

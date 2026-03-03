@@ -43,9 +43,9 @@ This repository contains the following main files and folders:
      Saved files have the format `{"metadata": meta, "result_list": ...}` with **minimal metadata** (γ’s, coherence (%), `num_trial`, `threshold`, `trial_len`, `BG_len`, `input_amp`, `timestamp`, and always `top_down`; **add `S` and `R` only when `top_down=True`**).
 5. **`Network_set.py`**
    Network construction for Brian2: defines neuron groups, synapses, inputs, and monitors; supports optional top-down control (S,R).
-6. **`Data_generator.py`**
+6. **`Data_Generator.py`**
    A headless (no-GUI) runner for batch simulations and saving results. Provides a `data_generator(...)` function and a top “user settings” block. Two workflows: (i) **energy mode** — run N trials at a single coherence and save **one** `.pkl`; (ii) **Performance/RT mode** — sweep **\[0, 3.2, 6.4, 12.8, 25.6, 51.2]%** and save **six** `.pkl` files (one per coherence). Filenames strictly follow the GUI convention:
-   `EE{γEE}_EI{γEI}_IE{γIE}_II{γII}[_S{S}_R{R}]_coh{coh}_trialCount{N}_{timestamp}.pkl`.
+   `EE{γEE}_EI{γEI}_IE{γIE}_II{γII}[_S{S}_R{R}]_strength{strength}_trialCount{N}_{timestamp}.pkl`.
    Each file stores `{"metadata": …, "result_list": …}` and is fully compatible with `DESSiNe_EL.py` for loading/merging/plotting.
 7. **`data/`**
    Default folder for saved `.pkl` outputs (optional—users can save/load anywhere via the
