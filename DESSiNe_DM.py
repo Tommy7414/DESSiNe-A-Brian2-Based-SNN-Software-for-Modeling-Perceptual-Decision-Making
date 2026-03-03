@@ -283,7 +283,8 @@ class RunningTrialDialog(QDialog):
         elif len(indices_high_EL) != 0:
             # if E_L reaches threshold
             if len(indices_low_ER) == 0:
-                # E_R does not reach lowthreshold
+                # E_R does not rea
+                # ch lowthreshold
                 EL_firing = True
                 EL_RT = indices_high_EL[0] / 10.0
                 print('EL firing', EL_RT)

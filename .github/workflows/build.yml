@@ -1,9 +1,13 @@
-name: Build Binary with PyInstaller
+name: Build and Release with PyInstaller
 
 on:
   workflow_dispatch:
   push:
-    branches: ["main"]
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -13,7 +17,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            slug: linux-x64
+          - os: windows-latest
+            slug: windows-x64
+          - os: macos-latest
+            slug: macos
 
     defaults:
       run:
@@ -32,30 +42,30 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install pyinstaller
           if [ -f requirements.txt ]; then
             python -m pip install -r requirements.txt
           fi
+          python -m pip install pyinstaller
 
       - name: Build with PyInstaller (Windows)
         if: runner.os == 'Windows'
         run: |
           python -m PyInstaller --clean --noconfirm \
             --windowed \
-            --name DESSiNe_ELApp_Win \
+            --name DESSiNe_ELApp \
             --collect-all=brian2 \
             --collect-all=Cython \
             --exclude-module=tkinter \
-            --icon=DESSiNe_EL.icns \
+            --icon=DESSiNe_EL.png \
             DESSiNe_EL.py
 
           python -m PyInstaller --clean --noconfirm \
             --windowed \
-            --name DESSiNe_DMApp_Win \
+            --name DESSiNe_DMApp \
             --collect-all=brian2 \
             --collect-all=Cython \
             --exclude-module=tkinter \
-            --icon=DESSiNe_DM.icns \
+            --icon=DESSiNe_DM.png \
             DESSiNe_DM.py
 
       - name: Build with PyInstaller (macOS)
@@ -64,21 +74,21 @@ jobs:
           python -m PyInstaller --clean --noconfirm \
             --windowed \
             --strip \
-            --name DESSiNe_ELApp_Mac \
+            --name DESSiNe_ELApp \
             --collect-all=brian2 \
             --collect-all=Cython \
             --exclude-module=tkinter \
-            --icon=DESSiNe_EL.icns \
+            --icon=DESSiNe_EL.png \
             DESSiNe_EL.py
 
           python -m PyInstaller --clean --noconfirm \
             --windowed \
             --strip \
-            --name DESSiNe_DMApp_Mac \
+            --name DESSiNe_DMApp \
             --collect-all=brian2 \
             --collect-all=Cython \
             --exclude-module=tkinter \
-            --icon=DESSiNe_DM.icns \
+            --icon=DESSiNe_DM.png \
             DESSiNe_DM.py
 
       - name: Build with PyInstaller (Linux)
@@ -86,7 +96,7 @@ jobs:
         run: |
           python -m PyInstaller --clean --noconfirm \
             --strip \
-            --name DESSiNe_ELApp_Linux \
+            --name DESSiNe_ELApp \
             --collect-all=brian2 \
             --collect-all=Cython \
             --exclude-module=tkinter \
@@ -94,14 +104,86 @@ jobs:
 
           python -m PyInstaller --clean --noconfirm \
             --strip \
-            --name DESSiNe_DMApp_Linux \
+            --name DESSiNe_DMApp \
             --collect-all=brian2 \
             --collect-all=Cython \
             --exclude-module=tkinter \
             DESSiNe_DM.py
 
-      - name: Upload Artifacts
+      - name: Package release files
+        env:
+          OS_SLUG: ${{ matrix.slug }}
+        run: |
+          python - <<'PY'
+          import os
+          import pathlib
+          import zipfile
+
+          dist = pathlib.Path("dist")
+          out = pathlib.Path("release")
+          out.mkdir(exist_ok=True)
+
+          def zip_target(src_path: pathlib.Path, zip_path: pathlib.Path):
+              with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+                  if src_path.is_dir():
+                      for p in src_path.rglob("*"):
+                          if p.is_file():
+                              zf.write(p, p.relative_to(src_path.parent))
+                  else:
+                      zf.write(src_path, src_path.name)
+
+          targets = [
+              ("DESSiNe_ELApp", dist / "DESSiNe_ELApp"),
+              ("DESSiNe_DMApp", dist / "DESSiNe_DMApp"),
+          ]
+
+          # macOS windowed build produces .app bundles
+          if os.environ.get("RUNNER_OS") == "macOS":
+              targets = [
+                  ("DESSiNe_ELApp", dist / "DESSiNe_ELApp.app"),
+                  ("DESSiNe_DMApp", dist / "DESSiNe_DMApp.app"),
+              ]
+
+          for app_name, src in targets:
+              if not src.exists():
+                  raise SystemExit(f"Expected build output not found: {src}")
+              zip_name = f"{app_name}-{os.environ['OS_SLUG']}.zip"
+              zip_target(src, out / zip_name)
+              print(f"Created: {out / zip_name}")
+          PY
+
+      - name: Upload packaged artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: DESSiNe-Builds-${{ matrix.os }}
-          path: dist/
+          name: release-${{ matrix.slug }}
+          path: release/*.zip
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v5
+        with:
+          path: release-assets
+
+      - name: Show downloaded files
+        run: find release-assets -type f -maxdepth 3 | sort
+
+      - name: Create or update release and upload assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release view "$TAG" >/dev/null 2>&1 || \
+          gh release create "$TAG" \
+            --title "$TAG" \
+            --notes "Automated build for $TAG"
+
+          gh release upload "$TAG" release-assets/**/*.zip --clobber
