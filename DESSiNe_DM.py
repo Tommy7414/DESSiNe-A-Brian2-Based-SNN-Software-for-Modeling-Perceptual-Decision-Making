@@ -13,7 +13,7 @@ from matplotlib.figure import Figure
 
 # The function we design
 from Network_set import build_network
-from plot_func import plot_data
+from Plot_func import plot_data
 
 # ==== MatplotlibWidget ====
 class MatplotlibWidget(QWidget):
