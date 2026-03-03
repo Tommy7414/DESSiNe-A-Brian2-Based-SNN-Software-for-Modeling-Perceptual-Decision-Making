@@ -182,12 +182,36 @@ jobs:
           TAG: ${{ github.ref_name }}
           REPO: ${{ github.repository }}
         run: |
-          gh release view "$TAG" -R "$REPO" >/dev/null 2>&1 || \
-          gh release create "$TAG" \
-            -R "$REPO" \
-            --title "$TAG" \
-            --notes "Automated build for $TAG"
+          retry() {
+            local max_attempts=5
+            local delay=15
+            local attempt=1
 
-          gh release upload "$TAG" release-assets/**/*.zip \
+            while true; do
+              "$@" && break
+              if [ "$attempt" -ge "$max_attempts" ]; then
+                echo "Command failed after ${attempt} attempts: $*"
+                return 1
+              fi
+              echo "Attempt ${attempt} failed. Retrying in ${delay}s..."
+              attempt=$((attempt + 1))
+              sleep "$delay"
+            done
+          }
+
+          echo "Checking whether release ${TAG} exists..."
+          if ! retry gh release view "$TAG" -R "$REPO" >/dev/null 2>&1; then
+            echo "Release not visible yet (or API transient issue). Trying to create it..."
+            gh release create "$TAG" \
+              -R "$REPO" \
+              --title "$TAG" \
+              --notes "Automated build for $TAG" || true
+
+            echo "Re-checking release after create..."
+            retry gh release view "$TAG" -R "$REPO" >/dev/null
+          fi
+
+          echo "Uploading assets..."
+          retry gh release upload "$TAG" release-assets/**/*.zip \
             -R "$REPO" \
             --clobber
