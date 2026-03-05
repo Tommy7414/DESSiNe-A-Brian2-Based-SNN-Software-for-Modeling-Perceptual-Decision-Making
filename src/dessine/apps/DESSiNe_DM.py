@@ -12,8 +12,8 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 
 # The function we design
-from Network_set import build_network
-from Plot_func import plot_data
+from dessine.core.network_set import build_network
+from dessine.core.plot_func import plot_data
 
 # ==== MatplotlibWidget ====
 class MatplotlibWidget(QWidget):

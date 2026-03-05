@@ -29,14 +29,14 @@ import matplotlib.pyplot as plt
 
 from brian2 import ms, Hz
 
-from Functions import (
+from dessine.core.functions import (
     plot_energy_landscapes_on_figure,
     plot_perf_rt_on_figure,
     load_and_merge_data_with_metadata,
     _fit_psychometric_logistic_log10,
     _psychometric_curve
 )
-from Network_set import build_network
+from dessine.core.network_set import build_network
 
 
 def _safe_filename(name: str) -> str:

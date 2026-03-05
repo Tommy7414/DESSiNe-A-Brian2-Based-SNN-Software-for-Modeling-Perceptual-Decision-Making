@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import pandas as pd 
 from brian2 import ms, Hz
 import datetime
-from Network_set import build_network 
+from dessine.core.network_set import build_network 
 
 def DataGeneration( 
     params, 
