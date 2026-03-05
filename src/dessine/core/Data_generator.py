@@ -32,7 +32,7 @@ import pickle
 import datetime
 from typing import List, Dict, Tuple
 
-from Functions import DataGeneration 
+from dessine.core.functions import DataGeneration 
 
 def _filename_base_from_params(p: Dict) -> str:
     """based on parameters, create a base filename."""
