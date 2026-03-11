@@ -31,10 +31,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: "pip"
@@ -45,6 +45,7 @@ jobs:
           if [ -f requirements.txt ]; then
             python -m pip install -r requirements.txt
           fi
+          python -m pip install -e .
           python -m pip install pyinstaller
 
       - name: Build with PyInstaller (Windows)
@@ -56,8 +57,8 @@ jobs:
             --collect-all=brian2 \
             --collect-all=Cython \
             --exclude-module=tkinter \
-            --icon=DESSiNe_EL.png \
-            DESSiNe_EL.py
+            --icon=src/dessine/assets/ico/dessine_el.ico \
+            src/dessine/apps/DESSiNe_EL.py
 
           python -m PyInstaller --clean --noconfirm \
             --windowed \
@@ -65,8 +66,8 @@ jobs:
             --collect-all=brian2 \
             --collect-all=Cython \
             --exclude-module=tkinter \
-            --icon=DESSiNe_DM.png \
-            DESSiNe_DM.py
+            --icon=src/dessine/assets/ico/dessine_dm.ico \
+            src/dessine/apps/DESSiNe_DM.py
 
       - name: Build with PyInstaller (macOS)
         if: runner.os == 'macOS'
@@ -78,8 +79,8 @@ jobs:
             --collect-all=brian2 \
             --collect-all=Cython \
             --exclude-module=tkinter \
-            --icon=DESSiNe_EL.png \
-            DESSiNe_EL.py
+            --icon=src/dessine/assets/icons/dessine_el.icns \
+            src/dessine/apps/DESSiNe_EL.py
 
           python -m PyInstaller --clean --noconfirm \
             --windowed \
@@ -88,8 +89,8 @@ jobs:
             --collect-all=brian2 \
             --collect-all=Cython \
             --exclude-module=tkinter \
-            --icon=DESSiNe_DM.png \
-            DESSiNe_DM.py
+            --icon=src/dessine/assets/icons/dessine_dm.icns \
+            src/dessine/apps/DESSiNe_DM.py
 
       - name: Build with PyInstaller (Linux)
         if: runner.os == 'Linux'
@@ -100,7 +101,7 @@ jobs:
             --collect-all=brian2 \
             --collect-all=Cython \
             --exclude-module=tkinter \
-            DESSiNe_EL.py
+            src/dessine/apps/DESSiNe_EL.py
 
           python -m PyInstaller --clean --noconfirm \
             --strip \
@@ -108,7 +109,7 @@ jobs:
             --collect-all=brian2 \
             --collect-all=Cython \
             --exclude-module=tkinter \
-            DESSiNe_DM.py
+            src/dessine/apps/DESSiNe_DM.py
 
       - name: Package release files
         env:
@@ -169,7 +170,7 @@ jobs:
 
     steps:
       - name: Download all build artifacts
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v4
         with:
           path: release-assets
 
