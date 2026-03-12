@@ -256,5 +256,36 @@ In `DESSiNe_DM.py`, the “Evidence Strengths(%)” input should be applied as `
 
 For theoretical background on balanced and selective inhibition, attractor neural networks, and top-down modulation, please see:
 
-1. **Wang et al. (2013)**: [*Top-Down Modulation on Perceptual Decision...*](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0062379)
-2. **Liu et al. (2021)**: [*Choose carefully, act quickly...*](https://www.biorxiv.org/content/10.1101/2021.10.05.463257v2)
+1. Wong KF, Huk AC, Shadlen MN, Wang XJ. Neural Circuit Dynamics Underlying Accumulation of Time-Varying Evidence during Perceptual Decision Making. Frontiers in Computational Neuroscience. 2007;1:6. Available from: https://doi.org/10.3389/neuro.10.006.2007.
+2. O’Connell RG, Shadlen MN, Wong-Lin K, Kelly SP. Bridging Neural and Computational Viewpoints on Perceptual Decision-Making. Trends in Neurosciences. 2018;41(11):83852. Available from: https://doi.org/10.1016/j.tins.2018.06.005.
+3. O’Connell RG, Kelly SP. Neurophysiology of Human Perceptual Decision-Making. Annual Review of Neuroscience. 2021;44:495-516. Epub 2021-05-04. Available from: https://doi.org/10.1146/annurev-neuro-092019-100200.
+4. Okazawa G, Kiani R. Neural Mechanisms That Make Perceptual Decisions Flexible. Annual Review of Physiology. 2023;85:191-215. Epub 2022-11-07. Available from: https://doi.org/10.1146/annurev-physiol-031722-024731.
+5. Wong KF, Wang XJ. A recurrent network mechanism of time integration in perceptual decisions. The Journal of Neuroscience. 2006;26(4):1314-28. Available from: https://doi.org/10.1523/JNEUROSCI.3733-05.2006.
+6. Wang X. Decision Making in Recurrent Neuronal Circuits. Neuron. 2008 Oct;60(2):215-34. Available from: https://doi.org/10.1016/j.neuron.2008.09.034.
+7. Rubin R, Abbott LF, Sompolinsky H. Balanced Excitation and Inhibition Are Required for High-Capacity, Noise-Robust Neuronal Selectivity. Proceedings of the National Academy of Sciences. 2017 Oct;114(44):E9366-75. Available from: https://doi.org/10.1073/pnas.1705841114.
+8. Pettine WW, Louie K, Murray JD, Wang X. Excitatory–Inhibitory Tone Shapes Decision Strategies in a Hierarchical Neural Network Model of Multi-Attribute Choice. PLOS Computational Biology. 2021 Mar;17(3):e1008791. Available from: https://doi.org/10.1371/journal.pcbi.1008791
+9. Roach JP, Churchland AK, Engel TA. Choice Selective Inhibition Drives Stability and Competition in Decision Circuits. Nature Communications. 2023 Jan;14(1):147. Available from: https://doi.org/10.1038/s41467-023-35822-8.
+10. Roxin A, Ledberg A. Neurobiological Models of Two-Choice Decision Making Can Be Reduced to a One-Dimensional Nonlinear Diffusion Equation. PLOS Computational Biology. 2008 Mar;4(3):1-13. Available from: https://doi.org/10.1371/journal.pcbi.1000046.
+11. Ye L, Li C. Quantifying the Landscape of Decision Making From Spiking Neural Networks. Frontiers in Computational Neuroscience. 2021;15:740601. Available from: https://www.frontiersin.org/articles/10.3389/fncom.2021.740601.
+12. Finkelstein A, Fontolan L, Economo MN, Li N, Romani S, Svoboda K. Attractor Dynamics Gate Cortical Information Flow During Decision-Making. Nature Neuroscience. 2021;24(6):843-50. Available from: https://doi.org/10.1038/s41593-021-00840-6.
+13. Liu B, White AJ, Lo CC. Augmenting flexibility: mutual inhibition between inhibitory neurons expands functional diversity. iScience. 2025;28(2):111718. Available from: https://www.sciencedirect.com/science/article/pii/S2589004224029456.
+14. Wang S, Falcone R, Richmond B, Averbeck BB. Attractor dynamics reflect decision confidence in macaque prefrontal cortex. Nature Neuroscience. 2023;26(11):1970-80. Available from: https://doi.org/10.1038/s41593-023-01445-x.
+15. Albantakis L, Deco G. Changes of Mind in an Attractor Network of Decision-Making. PLOS Computational Biology. 2011;7(6):e1002086. Available from: https://doi.org/10.1371/journal.pcbi.1002086.
+16. Berlemont K, Nadal J. Perceptual Decision-Making: Biases in Post-Error Reaction Times Explained by Attractor Network Dynamics. Journal of Neuroscience. 2019;39(5):833-53. Available from: https://doi.org/10.1523/JNEUROSCI.1015-18.2018.
+17. Parmelee C, Moore S, Morrison K, Curto C. Core Motifs Predict Dynamic Attractors in Combinatorial Threshold-Linear Networks. PLOS ONE. 2022 Mar;17(3):e0264456. Available from: https://doi.org/10.1371/journal.pone.0264456.
+18. Bhatia A, Moza S, Bhalla US. Precise excitation–inhibition balance controls gain and timing in the hippocampus. eLife. 2019;8:e43415. Available from: https://doi.org/10.7554/eLife.43415.
+19. Wang CT, Lee CT, Wang XJ, Lo CC. Top-Down Modulation on Perceptual Decision with Balanced Inhibition through Feedforward and Feedback Inhibitory Neurons. PLOS ONE. 2013;8(4):e62379. Available from: https://doi.org/10.1371/journal.pone.0062379.
+20. Lo CC, Wang CT, Wang XJ. Speed-accuracy tradeoff by a control signal with balanced excitation and inhibition. Journal of Neurophysiology. 2015;114(1):650-61. Available from: https://doi.org/10.1152/jn.00845.2013.
+21. Hennequin G, Agnes EJ, Vogels TP. Inhibitory Plasticity: Balance, Control, and Codependence. Annual Review of Neuroscience. 2017;40:557-79. Available from: https://doi.org/10.1146/annurev-neuro-072116-031005.
+22. Reppert TR, Heitz RP, Schall JD. Neural mechanisms for executive controlof speed-accuracy trade-off. Cell Reports. 2023;42(11):113422. Available from: https://doi.org/10.1016/j.celrep.2023.113422.
+23. Machens CK, Romo R, Brody CD. Flexible Control of Mutual Inhibition: A Neural Model of Two-Interval Discrimination. Science. 2005;307(5712):1121-4. Available from: https://doi.org/10.1126/science.1104171.
+24. Jovanic T, Schneider-Mizell CM, Shao M, Masson JB, Denisov G, Fetter RD, et al. Competitive Disinhibition Mediates Behavioral Choice and Sequences in Drosophila. Cell. 2016;167(3):858-70.e19. Available from: https://doi.org/10.1016/j.cell.2016.09.009.
+25. Mahajan NR, Mysore SP. Donut-like Organization of Inhibition Underlies Categorical Neural Responses in the Midbrain. Nature Communications. 2022;13(1):1680. Available from: https://doi.org/10.1038/s41467-022-29318-0.
+26. Liu B, Lo CC, Wu KA. Choose Carefully, Act Quickly: Efficient Decision Making with Selective Inhibition in Attractor Neural Networks. bioRxiv. 2021. Preprint. Available from: https://www.biorxiv.org/content/10.1101/2021.10.05.463257.
+27. Najafi F, Elsayed GF, Cao R, Pnevmatikakis E, Latham PE, Cunningham JP, et al. Excitatory and Inhibitory Subnetworks Are Equally Selective during Decision-Making and Emerge Simultaneously during Learning. Neuron.2020;105(1):165-79.e8. Available from: https://doi.org/10.1016/j.neuron.2019.09.045.
+28. Shinn MW. PyDDM: A drift-diffusion modeling (DDM) framework for Python(software); 2018. GitHub repository, MIT License, accessed 30 July 2025. https://github.com/mwshinn/pyddm.
+29. Gast R, Rose D, Salomon C, M¨oller H, Weiskopf N, Kn¨osche T. PyRates —A Python framework for rate-based neural simulations. PLOS ONE.2019;14(12):e0225900. Available from: https://doi.org/10.1371/journal.pone.0225900.
+30. Chandrasekaran C, Hawkins G. ChaRTr: An R toolbox for modeling choices and response times in decision-making tasks. Journal of Neuroscience Methods. 2019;328:108432. Available from: https://doi.org/10.1016/j.jneumeth.2019.108432.
+31. Stimberg M, Brette R, Goodman DF. Brian 2, an intuitive and efficient neural simulator. eLife. 2019 Aug;8:e47314.
+32. Gewaltig MO, Diesmann M. NEST (NEural Simulation Tool). Scholarpedia. 2007;2(4):1430
+
