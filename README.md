@@ -15,53 +15,56 @@ A **biologically plausible** spiking neural network model for decision-making ta
 * **Adjustable selective inhibitory connections**
 * **Configurable top-down control signals**
 * **Two separate PyQt5-based GUI tools** for:
-  * Running simulations and visualizing results (original `PDMSNN_DM.py`)
-  * Advanced analysis of performance, reaction times, and “energy landscapes” (`PDMSNN_EL.py`)
+  * Running simulations and visualizing results (`DESSiNe_DM.py`)
+  * Advanced analysis of performance, reaction times, and “energy landscapes” (`DESSiNe_EL.py`)
 * **Real-time** or **post-hoc** visualization of network dynamics and decision outcomes
-* **Precompiled macOS Applications** (`PDMSNN_DMApp`, `PDMSNN_ELApp`) that allow users to run the full system without needing to install Python or any packages.
+* **Precompiled macOS Applications** (`DESSiNe_DMApp`, `DESSiNe_ELApp`) that allow users to run the full system without needing to install Python or any packages.
 
 ---
 
 ## Repository Structure
 
-This repository contains the following main files and folders:
+The codebase is organized under a `src/` package layout:
 
-1. **`DESSiNe_EL.py`**
-   A standalone PyQt5 application for **running batch simulations** and **plotting**. It offers three workflows: (i) load existing `.pkl` files and plot **energy landscapes** (full-scale or time-windowed) or **Performance/RT**; (ii) run **energy mode** (N trials at a single coherence) and optionally save **one** `.pkl`; (iii) run **Performance/RT mode** (the six coherences: **0, 3.2, 6.4, 12.8, 25.6, 51.2** %) and optionally save **six** `.pkl` files (one per coherence). Plots can overlay up to **five** parameter groups (time-windowed energy supports one group only).
-2. **`DESSiNe_DM.py`**
-   A PyQt5 interface to **configure and run** the spiking network **live** with real-time visualization (E\_L/E\_R, inhibitory, NSE). You can set population sizes, γ-parameters, top-down (S,R), coherence (%), background/stimulus durations, and decision threshold, then observe the dynamics in a single session. **Note:** `DESSiNe_DM.py` is **live inspection only** and does **not** write result files.
-3. **`Plot_func.py`**
-   Small plotting utilities used by **`DESSiNe_DM.py`** for in-session visualization (rasters, rates, etc.).
-   **Note:** The advanced plotting (energy landscapes, Performance/RT) lives in **`Functions.py`** and is invoked by **`DESSiNe_EL.py`**.
-4. **`Functions.py`**
-   Core functions for **data generation** and **analysis** used by `DESSiNe_EL.py`, including:
+### `src/dessine/apps/` — GUI entry points
+- **`DESSiNe_DM.py`**  
+  A PyQt5 GUI for **single-session, real-time inspection** of the spiking decision network.  
+  It is intended for interactive exploration (live traces and rasters) and **does not save** `.pkl` result files.
 
-   * `DataGeneration`: multi-trial simulation; records choice flags and RTs.
-   * `plot_energy_landscapes_on_figure`: full-scale or time-windowed quasi-potential plots.
-   * `plot_perf_rt_on_figure`: psychometric (performance) and chronometric (RT) curves.
-   * `load_and_merge_data_with_metadata`: load `.pkl` files and **merge** trials that share the same **behavior-relevant metadata**.
-     Saved files have the format `{"metadata": meta, "result_list": ...}` with **minimal metadata** (γ’s, coherence (%), `num_trial`, `threshold`, `trial_len`, `BG_len`, `input_amp`, `timestamp`, and always `top_down`; **add `S` and `R` only when `top_down=True`**).
-5. **`Network_set.py`**
-   Network construction for Brian2: defines neuron groups, synapses, inputs, and monitors; supports optional top-down control (S,R).
-6. **`Data_Generator.py`**
-   A headless (no-GUI) runner for batch simulations and saving results. Provides a `data_generator(...)` function and a top “user settings” block. Two workflows: (i) **energy mode** — run N trials at a single coherence and save **one** `.pkl`; (ii) **Performance/RT mode** — sweep **\[0, 3.2, 6.4, 12.8, 25.6, 51.2]%** and save **six** `.pkl` files (one per coherence). Filenames strictly follow the GUI convention:
-   `EE{γEE}_EI{γEI}_IE{γIE}_II{γII}[_S{S}_R{R}]_strength{strength}_trialCount{N}_{timestamp}.pkl`.
-   Each file stores `{"metadata": …, "result_list": …}` and is fully compatible with `DESSiNe_EL.py` for loading/merging/plotting.
-7. **`data/`**
-   Default folder for saved `.pkl` outputs (optional—users can save/load anywhere via the
-8. **`dist/`**
+- **`DESSiNe_EL.py`**  
+  A PyQt5 GUI for **batch runs and plotting**. It supports:
+  (i) loading existing `.pkl` files to plot energy landscapes (full-scale or RT-aligned time-windowed) and Performance/RT;  
+  (ii) running new batches to generate `.pkl` files; and  
+  (iii) comparing parameter groups via metadata-based grouping/merging.
 
-   * This folder contains precompiled `.app` versions for macOS (tested on Apple M2 chips):
-     * `PDMSNN_DMApp`: A packaged application for configuring and running spiking network simulations without requiring a Python environment.
-     * `PDMSNN_ELApp`: A packaged application for advanced plotting and analysis.
-   * **Usage**:
-     * Simply double-click the `.app` file to launch.
-     * No need to install Python or any libraries manually.
-     * The workflow inside the app mirrors the Python scripts:
-       * For `PDMSNN_DMApp`: Set parameters → run simulation → view results in real-time.
-       * For `PDMSNN_ELApp`: Choose between plotting existing data or running new trials → analyze energy landscapes or performance curves.
+### `src/dessine/core/` — simulation, analysis, and plotting core
+- **`network_set.py`**  
+  Brian2 network construction: neuron groups, synapses, inputs, and monitors.  
+  Includes optional top-down control (BSI parameters `S`, `R`, and `n_Ctr` if enabled).
 
+- **`functions.py`**  
+  Core simulation + analysis utilities used by the GUIs, including:
+  - multi-trial simulation (e.g., `DataGeneration`)
+  - data loading/merging by embedded metadata
+  - energy landscape plotting (full-scale and time-windowed)
+  - Performance/RT plotting
+
+- **`plot_func.py`**  
+  Lightweight plotting utilities primarily used for the DM live display (rasters/rates/traces).
+
+- **`data_generator.py`**  
+  A headless (no-GUI) runner for scripted batch generation of GUI-compatible `.pkl` files via `data_generator(...)`.  
+  Output files follow the same metadata schema as the EL GUI and can be loaded/merged/visualized in `DESSiNe_EL.py`.
+
+### `src/dessine/assets/` — GUI resources
+- icons and images used by the GUIs and PyInstaller builds.
+
+### `data/` — example result files (Git LFS)
+ - This folder contains example `.pkl` files tracked via **Git LFS**.  
+ - If you download the repository as a ZIP from GitHub, these `.pkl` files may download as **LFS pointer files** and cannot be loaded directly.  
+ Please follow the “Download example data (Git LFS)” instructions below.
 ---
+
 
 ## Installation and Dependencies
 
@@ -77,65 +80,110 @@ pip install brian2 pyqt5 matplotlib numpy pandas
 ```
 
 ---
-
 ## How to Use the GUIs
 
-### 1) Live inspection (`DESSiNe_DM.py`)
+### Option A (recommended): Download prebuilt apps from GitHub Releases
+1. Go to the GitHub **Releases** page of this repository.
+2. Download the packaged app for your OS:
+   - macOS: `DESSiNe_DMApp-<version>-macos.zip`, `DESSiNe_ELApp-<version>-macos.zip`
+   - Windows: `DESSiNe_DMApp-<version>-windows-x64.zip`, `DESSiNe_ELApp-<version>-windows-x64.zip`
+   - Linux: `DESSiNe_DMApp-<version>-linux-x64.zip`, `DESSiNe_ELApp-<version>-linux-x64.zip`
+3. Unzip and launch:
+   - macOS: right-click the `.app` → **Open** (Gatekeeper may block first launch)
+   - Windows/Linux: run the extracted executable
 
-This is the interactive GUI to **configure the network** and watch activity in real time. It **does not save** result files.
-
-**Run**
-
-```bash
-python DESSiNe_DM.py
-```
-
-(or launch the packaged app/exe if you built it with PyInstaller)
-
-**Steps**
-
-1. In the main window, set population sizes (`n_E`, `n_I`, `n_NSE`), γ-parameters (`gamma_ee`, `gamma_ei`, `gamma_ie`, `gamma_ii`), and optionally enable **Top-down** (`S`, `R`).
-2. Open **Running Trial** and set `BG_len`, `trial_len`, `input_amp`, **`coherence (%)`**, and `threshold`.
-3. Click **Start Running** to stream E\_L/E\_R (plus inhibitory/NSE) with background → stimulus → short post-decision.
-4. Use **Reset Network** to return to the stored default and try new settings.
-
-> Need saved data for later plotting? Use **`DESSiNe_EL.py`**.
+> The DM app is for real-time inspection (single trial).  
+> The EL app is for batch runs and plotting (multi-trial summaries, with optional `.pkl` saving/loading).
 
 ---
 
-### 2) Advanced plotting & batch runs (`DESSiNe_EL.py`)
+### Option B: Run from source (developers)
+Create a Python environment and install dependencies, then run the entry scripts under `src/dessine/apps/`.
 
-This GUI runs new trials **and** plots existing data (energy landscapes, performance/RT). It handles saving/merging `.pkl` files with metadata.
+(Example)
+```bash
+pip install -r requirements.txt
+pip install -e .
+python src/dessine/apps/DESSiNe_DM.py
+python src/dessine/apps/DESSiNe_EL.py
+````
 
-**Run**
+---
+
+### Download example data (Git LFS)
+
+This repository includes example `.pkl` files under `data/`, tracked with **Git LFS**.
+If you use GitHub “Download ZIP”, the `.pkl` files may become **LFS pointer files** and will fail to load.
+
+To download the real `.pkl` files:
 
 ```bash
-python DESSiNe_EL.py
+brew install git-lfs          # macOS (Homebrew)
+git lfs install
+git clone https://github.com/Tommy7414/DESSiNe-A-Brian2-Based-SNN-Software-for-Modeling-Perceptual-Decision-Making.git
+cd DESSiNe-A-Brian2-Based-SNN-Software-for-Modeling-Perceptual-Decision-Making
+git lfs pull
 ```
 
-(or launch the packaged app/exe)
+You can then load the `.pkl` files in `DESSiNe_EL` via “Load data and plot”.
 
-**Mode selection**
+---
 
-1. **Use existing data to plot**
-   Pick one or more `.pkl` files. The app groups by **internal metadata** (filenames don’t matter), merges compatible files, and lets you:
+## 1) Real-time single-trial inspection (DM)
 
-   * Plot **energy landscapes (full-scale)**; overlay up to **5** parameter groups.
-   * Plot **energy landscapes (time-windowed)**; requires a **single** parameter set (no overlay).
-   * Plot **Performance/RT**; requires a complete set of **six coherences**: `0, 3.2, 6.4, 12.8, 25.6, 51.2 (%)`.
-2. **Run new trial (energy)**
-   Set top-down/network/simulation parameters, choose a **single coherence**, run **N** trials, view the full-scale landscape (optionally time-windowed), and **optionally save one `.pkl`**.
-3. **Run new trial (performance/RT)**
-   Same setup, but the app iterates the **six coherences**, shows performance and RT curves, and **optionally saves six `.pkl` files** (one per coherence).
+**DM** is designed for **interactive, single-session visualization**.
+It streams live signals (rates/rasters/traces) during one trial and is best for quickly understanding how parameter changes affect the decision process.
+**DM does not save `.pkl` files.**
 
-**Typical workflow**
+Run:
 
-* Start `DESSiNe_EL.py` → choose a mode.
-* For plotting existing data: select files → pick plot type → view/export figures.
-* For new runs: enter **Top-down** (Window 1) → enter **network & simulation** (Window 2) → execute (Window 3) with progress and plots → optionally save `.pkl` files for later analysis.
+```bash
+python src/dessine/apps/DESSiNe_DM.py
+```
 
-**Reminder (to avoid mistakes)**
-Performance/RT plots only appear when a parameter group has **all six** coherence files present; time-windowed energy accepts **one** parameter set; and DM never writes `.pkl`—all saved data comes from EL.
+Typical steps:
+
+1. Set population sizes (`n_E`, `n_I`, `n_NSE`), selectivity parameters (`gamma_ee`, `gamma_ei`, `gamma_ie`, `gamma_ii`), and optional top-down control (`S`, `R`).
+2. Configure trial settings (e.g., background/stimulus duration, `input_amp`, `evidence_strength (%)`, and decision `threshold`).
+3. Start running and inspect the real-time dynamics.
+
+---
+
+## 2) Batch runs + plotting (EL)
+
+**EL** is designed for **multi-trial analysis and visualization**.
+It can (a) **run batches** to generate results and optionally save `.pkl` files, and (b) **load existing `.pkl` files** (including files you generated locally) to plot energy landscapes and Performance/RT summaries.
+
+Run:
+
+```bash
+python src/dessine/apps/DESSiNe_EL.py
+```
+
+EL provides three common workflows:
+
+### (a) Load data and plot
+
+* Load one or more `.pkl` files.
+* Files are grouped/merged by **embedded metadata** (filenames do not matter).
+* Supported plots:
+
+  * **Energy landscape (full-scale)**: can overlay up to **5** parameter groups.
+  * **Energy landscape (time-windowed / RT-aligned)**: requires a **single** consistent parameter group.
+  * **Performance/RT**: requires a complete set of **six evidence strengths**: `0, 3.2, 6.4, 12.8, 25.6, 51.2 (%)`.
+
+### (b) Run new trials (energy landscape)
+
+* Choose a single evidence strength and run **N trials**.
+* The energy landscape estimate becomes more stable with larger N (more decision trails).
+* Optionally save the aggregated results as **one** `.pkl`.
+
+### (c) Run new trials (Performance/RT)
+
+* Run batches across the six evidence strengths (`0, 3.2, 6.4, 12.8, 25.6, 51.2 (%)`).
+* Optionally save **six** `.pkl` files (one per evidence strength), which can later be loaded and compared.
+
+> Note: All `.pkl` saving/loading is handled in EL (or via `src/dessine/core/data_generator.py` for headless batch generation).
 
 ---
 
@@ -152,7 +200,7 @@ Performance/RT plots only appear when a parameter group has **all six** coherenc
 3. **Key Features**
    * **Selective Inhibition**: Weighted suppression of the “losing” population to sharpen decision signals.
    * **Top-Down**: Additional input for biasing or speeding up decisions.
-   * **Coherence**: Stimulus bias that drives one excitatory population more than the other.
+   * **Evidence Strength**: Stimulus bias that drives one excitatory population more than the other.
    * **Energy Landscapes**: Interpreting population states as stable attractors that can be visualized over time or aggregated across trials.
 
 ---
@@ -166,7 +214,7 @@ Saved files always include:
 
 ```
 gamma_ee, gamma_ei, gamma_ie, gamma_ii,
-coherence (%), num_trial, threshold, trial_len, BG_len, input_amp,
+evidence strength (%), num_trial, threshold, trial_len, BG_len, input_amp,
 timestamp, top_down  [and S, R if top_down=True]
 ```
 
@@ -181,9 +229,9 @@ Each trial stores the decision flags and RT plus arrays used for energy-landscap
 ## Example: Generating and Plotting Performance Curves (revised)
 
 1. **Run New Trial (performance/RT)** in `DESSiNe_EL.py`
-   Choose **Run new trial (performance/RT)** → set (optional) top-down `S, R` and network/simulation parameters → click **Run**. The app sweeps the six coherences **\[0, 3.2, 6.4, 12.8, 25.6, 51.2] (%)**, then plots **Performance vs. Coherence** and **Reaction Time**. You can optionally save **six** `.pkl` files (one per coherence), each with the metadata above.
+   Choose **Run new trial (performance/RT)** → set (optional) top-down `S, R` and network/simulation parameters → click **Run**. The app sweeps the six evidence strengths **\[0, 3.2, 6.4, 12.8, 25.6, 51.2] (%)**, then plots **Performance vs. Evidence Strength** and **Reaction Time**. You can optionally save **six** `.pkl` files (one per evidence strength), each with the metadata above.
 2. **Post-hoc plotting**
-   Later, choose **Use existing data to plot** in EL, select your `.pkl` files, and regenerate Performance/RT or Energy-landscape figures. For Performance/RT, a parameter group is plotted **only if** all six coherence files are present.
+   Later, choose **Use existing data to plot** in EL, select your `.pkl` files, and regenerate Performance/RT or Energy-landscape figures. For Performance/RT, a parameter group is plotted **only if** all six evidence strengths files are present.
 
 ---
 
@@ -200,7 +248,7 @@ These bundles embed Python and dependencies (no separate install). Double-click 
 
 ### Optional code sanity check
 
-In `DESSiNe_DM.py`, the “Coherence(%)” input should be applied as `amp * (1 ± coherence/100)` (to match EL and your docs). If you haven’t already, make sure DM divides by **100** internally.
+In `DESSiNe_DM.py`, the “Evidence Strengths(%)” input should be applied as `amp * (1 ± evidence_strength/100)` (to match EL and your docs). If you haven’t already, make sure DM divides by **100** internally.
 
 ---
 
